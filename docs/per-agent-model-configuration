@@ -1,0 +1,319 @@
+# Using Different AI Models for Different Agents
+
+> **Requires:** Agent Zero v0.9.7 or later
+
+---
+
+## Overview
+
+This feature lets you assign different AI models to different agent profiles in Agent Zero. Instead of every agent using the same AI model, you can have:
+
+- A **researcher** agent using a powerful, thoughtful model
+- A **quick helper** agent using a fast, cost-effective model  
+- A **specialist** agent using a model you've fine-tuned for specific tasks
+
+**Who is this for?** Anyone who wants more control over which AI powers each type of task—whether to save costs, improve results, or match the right model to the right job.
+
+---
+
+## What This Lets You Do
+
+✅ **Save money** by using cheaper models for simple tasks  
+✅ **Get better results** by using powerful models where it matters  
+✅ **Experiment freely** by trying different models for different agents  
+✅ **Customize behavior** by adjusting settings like "creativity" per agent  
+✅ **Isolate knowledge** by giving agents their own knowledge/memory folders
+
+Your main Agent Zero settings become defaults. Each profile then gets its own preferences layered on top.
+
+---
+
+## How to Use It
+
+### Step 1: Find (or create) an agent profile
+
+Agent profiles live in folders inside `/a0/agents/`. Each folder is a profile:
+
+```
+/a0/agents/
+├── developer/      ← a profile
+├── researcher/     ← another profile  
+├── my_helper/      ← you can create your own
+```
+
+### Step 2: Create a settings file
+
+Inside your chosen profile folder, create a file called **`settings.json`**.
+
+For example, to customize the `researcher` profile:
+```
+/a0/agents/researcher/settings.json
+```
+
+### Step 3: Add your model preferences
+
+Open the file and add your settings in this format:
+
+```json
+{
+  "chat_model_provider": "openai",
+  "chat_model_name": "gpt-4o-mini"
+}
+```
+
+That's it! This agent will now use GPT-4o-mini instead of your default model.
+
+### Step 4: Use the profile
+
+When Agent Zero creates a subordinate agent, it can use your customized profile. The model settings you specified will automatically apply - if you haven't set them, it will revert to the defaults from the main settings file.
+
+---
+
+## Practical Example
+
+**Scenario:** You want a "fast assistant" that uses a quick, inexpensive model for simple tasks.
+
+### 1. Create the profile folder
+```
+/a0/agents/fast_assistant/
+```
+
+### 2. Add a description file
+Create `/a0/agents/fast_assistant/_context.md`:
+```markdown
+# Fast Assistant
+- a quick helper for simple tasks using a cost-effective model
+```
+
+### 3. Add model settings
+Create `/a0/agents/fast_assistant/settings.json`:
+```json
+{
+  "chat_model_provider": "openai",
+  "chat_model_name": "gpt-4o-mini",
+  "chat_model_kwargs": {
+    "temperature": 0.3
+  }
+}
+```
+
+### 4. Done!
+Now whenever `fast_assistant` is used, it runs on GPT-4o-mini with lower creativity (temperature 0.3). This is both more deterministic and cheaper to run on those tasks.
+
+---
+
+## Common Questions & Gotchas
+
+### "Do I need to restart Agent Zero?"
+
+No. Settings are loaded fresh each time an agent with that profile is created.
+
+### "What if I make a mistake in the file?"
+
+If `settings.json` has errors (like a missing comma), the agent will fall back to your default settings. Check that your file is valid JSON if things aren't working.
+
+### "Will this affect my main agent?"
+
+It may do. Your main Agent Zero keeps using whatever you configured in the main settings if no settings.json exists in its profile. You will see "Loaded custom settings for agent 0 with profile 'example_profile' in the UI if it does.
+
+### "What if I don't include a setting?"
+
+Anything you don't specify will use your default settings. You only need to include what you want to *change*.
+
+---
+
+## Complete Settings Reference
+
+Below is the **full list** of settings you can override in a profile's `settings.json`. You only need to include the ones you want to change.
+
+### 🤖 Chat Model (Main AI)
+
+The primary model the agent uses for conversations and reasoning.
+
+| Setting | What it does | Example |
+|---------|--------------|--------|
+| `chat_model_provider` | Which AI company | `"openai"`, `"anthropic"`, `"ollama"` |
+| `chat_model_name` | Which specific model | `"gpt-4o"`, `"claude-3-5-sonnet-20241022"` |
+| `chat_model_api_base` | Custom API endpoint | `"https://my-server.com/v1"` |
+| `chat_model_kwargs` | Extra parameters (see below) | `{"temperature": 0.7}` |
+| `chat_model_ctx_length` | Max context window size | `128000` |
+| `chat_model_ctx_history` | How much history to keep (0-1) | `0.5` |
+| `chat_model_vision` | Enable image understanding | `true` or `false` |
+| `chat_model_rl_requests` | Rate limit: requests/min | `60` |
+| `chat_model_rl_input` | Rate limit: input tokens/min | `100000` |
+| `chat_model_rl_output` | Rate limit: output tokens/min | `50000` |
+
+### 🔧 Utility Model
+
+A secondary model for background tasks like summarization.
+
+| Setting | What it does | Example |
+|---------|--------------|--------|
+| `util_model_provider` | Which AI company | `"openai"` |
+| `util_model_name` | Which specific model | `"gpt-4o-mini"` |
+| `util_model_api_base` | Custom API endpoint | `"https://my-server.com/v1"` |
+| `util_model_kwargs` | Extra parameters | `{"temperature": 0.3}` |
+| `util_model_ctx_length` | Max context window size | `16000` |
+| `util_model_ctx_input` | Max input ratio (0-1) | `0.8` |
+| `util_model_rl_requests` | Rate limit: requests/min | `100` |
+| `util_model_rl_input` | Rate limit: input tokens/min | `200000` |
+| `util_model_rl_output` | Rate limit: output tokens/min | `100000` |
+
+### 🌐 Browser Model
+
+Used when the agent controls a web browser.
+
+| Setting | What it does | Example |
+|---------|--------------|--------|
+| `browser_model_provider` | Which AI company | `"openai"` |
+| `browser_model_name` | Which specific model | `"gpt-4o"` |
+| `browser_model_api_base` | Custom API endpoint | `"https://my-server.com/v1"` |
+| `browser_model_kwargs` | Extra parameters | `{"temperature": 0.2}` |
+| `browser_model_vision` | Enable screenshot analysis | `true` |
+| `browser_model_rl_requests` | Rate limit: requests/min | `30` |
+| `browser_model_rl_input` | Rate limit: input tokens/min | `50000` |
+| `browser_model_rl_output` | Rate limit: output tokens/min | `25000` |
+| `browser_http_headers` | Custom HTTP headers | `{"User-Agent": "..."}` |
+
+### 📁 Agent Identity & Storage
+
+| Setting | What it does | Example |
+|---------|--------------|--------|
+| `agent_profile` | Default profile to use | `"researcher"` |
+| `agent_memory_subdir` | Memory storage folder | `"legal_team"` |
+| `agent_knowledge_subdir` | Knowledge import folder | `"legal_docs"` |
+
+### 🧠 Memory & Recall
+
+Controls how the agent remembers and retrieves information.
+
+| Setting | What it does | Example |
+|---------|--------------|--------|
+| `memory_recall_enabled` | Enable memory search | `true` |
+| `memory_recall_delayed` | Delay recall for batching | `false` |
+| `memory_recall_interval` | Recall check interval (msgs) | `3` |
+| `memory_recall_history_len` | Messages to consider | `5` |
+| `memory_recall_memories_max_search` | Max memories to search | `100` |
+| `memory_recall_solutions_max_search` | Max solutions to search | `50` |
+| `memory_recall_memories_max_result` | Max memories returned | `5` |
+| `memory_recall_solutions_max_result` | Max solutions returned | `3` |
+| `memory_recall_similarity_threshold` | Match strictness (0-1) | `0.7` |
+| `memory_recall_query_prep` | Preprocess search queries | `true` |
+| `memory_recall_post_filter` | Filter results after search | `true` |
+| `memory_memorize_enabled` | Enable saving memories | `true` |
+| `memory_memorize_consolidation` | Merge similar memories | `true` |
+| `memory_memorize_replace_threshold` | Similarity to replace (0-1) | `0.9` |
+
+---
+
+## Model Parameters (kwargs)
+
+The `*_kwargs` settings accept these common parameters:
+
+| Parameter | What it does | Range |
+|-----------|--------------|-------|
+| `temperature` | Creativity/randomness | `0.0` (focused) to `1.0` (creative) |
+| `top_p` | Token selection diversity | `0.0` to `1.0` |
+| `max_tokens` | Max response length | Varies by model |
+| `presence_penalty` | Discourage repetition | `-2.0` to `2.0` |
+| `frequency_penalty` | Discourage common words | `-2.0` to `2.0` |
+
+**Example with kwargs:**
+```json
+{
+  "chat_model_provider": "openai",
+  "chat_model_name": "gpt-4o",
+  "chat_model_kwargs": {
+    "temperature": 0.2,
+    "max_tokens": 4096
+  }
+}
+```
+
+---
+
+## Tips & Best Practices
+
+💡 **Start simple** — Just set `chat_model_provider` and `chat_model_name` at first. Add more settings later if needed.
+
+💡 **Use descriptive profile names** — Names like `fast_helper` or `deep_researcher` help you remember what each profile is for.
+
+💡 **Test with a simple task first** — Before relying on a new profile, try it with a quick task to make sure it's working.
+
+💡 **Keep temperature low for factual tasks** — Use `0.1` to `0.3` for tasks needing accuracy. Use `0.7` to `1.0` for creative tasks.
+
+💡 **Check available models** — Make sure the model name you're using actually exists with your provider. Typos, including case, will cause errors.
+
+💡 **Use knowledge_subdir for specialists** — Give a "legal_assistant" profile its own `/knowledge/legal/` folder with relevant documents.
+
+---
+
+## Quick Reference
+
+### Minimal settings.json
+```json
+{
+  "chat_model_provider": "openai",
+  "chat_model_name": "gpt-4o-mini"
+}
+```
+
+### With temperature adjustment
+```json
+{
+  "chat_model_provider": "anthropic",
+  "chat_model_name": "claude-3-5-sonnet-20241022",
+  "chat_model_kwargs": {
+    "temperature": 0.2
+  }
+}
+```
+
+### With custom knowledge folder
+```json
+{
+  "chat_model_provider": "openai",
+  "chat_model_name": "gpt-4o",
+  "agent_knowledge_subdir": "legal_docs",
+  "agent_memory_subdir": "legal_team"
+}
+```
+
+### Full example (all model types)
+```json
+{
+  "chat_model_provider": "anthropic",
+  "chat_model_name": "claude-3-5-sonnet-20241022",
+  "chat_model_kwargs": { "temperature": 0.3 },
+  
+  "util_model_provider": "openai",
+  "util_model_name": "gpt-4o-mini",
+  
+  "agent_knowledge_subdir": "research",
+  "memory_recall_similarity_threshold": 0.6
+}
+```
+
+### Profile folder structure
+```
+/a0/agents/your_profile/
+├── _context.md        ← Description (recommended)
+├── settings.json      ← Model settings (this feature)
+└── prompts/           ← Custom instructions (optional)
+    └── agent.system.main.role.md
+```
+
+---
+
+## What to Try Next
+
+- **Browse existing profiles** — Look in `/a0/agents/` to see examples of how profiles are structured
+- **Copy and customize** — Duplicate an existing profile folder, rename it, and adjust the settings
+- **Experiment with models** — Try different providers or models to find what works best for different tasks
+- **Create specialized agents** — Combine custom prompts with model settings for task-specific assistants
+
+If something isn't working as expected, double-check that your `settings.json` file is valid JSON and that the model name matches exactly what your provider offers.
+
+---
+
+*This feature was added in Agent Zero v0.9.7 (November 2025).*
