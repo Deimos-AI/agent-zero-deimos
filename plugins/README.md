@@ -1,6 +1,6 @@
 # Agent Zero Plugins
 
-This directory contains default plugins shipped with Agent Zero.
+This directory contains default plugins shipped with Agent Zero and is the source of truth for the plugin system.
 
 ## Architecture
 
@@ -9,6 +9,49 @@ Agent Zero uses a convention-over-configuration plugin model:
 - Runtime capabilities are discovered from directory structure.
 - Backend owns discovery, routing, and static asset serving.
 - Frontend uses explicit `x-extension` breakpoints plus the standard `x-component` loader.
+
+### Internal Components
+
+1. **Backend plugin discovery** (`python/helpers/plugins.py`)
+   - `get_plugin_roots()` resolves roots in priority order (`usr/plugins` first, then `plugins`).
+   - `list_plugins()` builds the effective set (first root wins on ID conflicts).
+   - `get_webui_extensions(extension_point, filters)` scans `extensions/webui/<extension_point>/`.
+
+2. **Path resolution** (`python/helpers/subagents.py`)
+   - `get_paths(..., include_plugins=True)` includes plugin candidates for prompts/tools.
+
+3. **Python extension runtime** (`python/helpers/extension.py`)
+   - `call_extensions(extension_point, agent, **kwargs)` executes extension classes.
+   - Searches `python/extensions/<point>/` and `plugins/*/extensions/python/<point>/`.
+   - Extension classes derive from `Extension` and implement `async execute()`.
+
+4. **API and static routes** (`run_ui.py`, `python/api/load_webui_extensions.py`)
+   - `GET /plugins/<plugin_id>/<path>` serves plugin static assets.
+   - Plugin APIs are mounted under `/api/plugins/<plugin_id>/<handler>`.
+   - `POST /api/load_webui_extensions` returns extension files for a given extension point.
+
+5. **Frontend WebUI extension runtime** (`webui/js/extensions.js`)
+   - HTML flow: discovers `<x-extension>` tags, calls backend API, injects `<x-component>` tags.
+   - JS flow: `callJsExtensions("<extension_point>", contextObject)` loads and executes plugin JS modules.
+   - Both HTML and JS lookups are cached per extension point.
+
+## File Structure
+
+```text
+plugins/
+  <plugin_id>/
+    api/                          # API handlers (ApiHandler subclasses)
+    tools/                        # Agent tools (Tool subclasses)
+    helpers/                      # Shared Python helpers
+    prompts/                      # Prompt templates
+    agents/                       # Agent profiles
+    extensions/
+      python/<extension_point>/   # Python lifecycle extensions
+      webui/<extension_point>/    # WebUI HTML/JS hook contributions
+    webui/                        # Full plugin-owned UI pages/components
+
+usr/plugins/<plugin_id>/          # User overrides (higher priority)
+```
 
 ## Directory Conventions
 
@@ -72,6 +115,10 @@ Current welcome surfaces:
 
 - `welcome-screen-start`
 - `welcome-screen-end`
+- `welcome-actions-start`
+- `welcome-actions-end`
+- `welcome-banners-start`
+- `welcome-banners-end`
 
 Current modal surfaces:
 
@@ -117,15 +164,23 @@ JS hooks are loaded from the same extension point structure:
 
 Runtime code calls:
 
-`callJsExtensions("<extension_point>", ...args)`
+`callJsExtensions("<extension_point>", contextObject)`
 
 JS hook convention:
 - pass one mutable context object when extensions are expected to influence behavior
 - that object is passed by reference, so mutations are visible to subsequent hooks in the same flow
+- hooks that support cancellation expose a `cancel: false` or `skip: false` field; set it to `true` to abort the operation
 
-Example:
+Current JS hook points:
 
-`set_messages_before_loop` and `set_messages_after_loop` in `webui/js/messages.js`.
+| Hook | File | Context fields | skip/cancel |
+|---|---|---|---|
+| `set_messages_before_loop` | messages.js | `messages, history, scrollerOptions, massRender, results` | - |
+| `set_messages_after_loop` | messages.js | same as above | - |
+| `send_message_before` | index.js | `message, attachments, context, cancel` | `cancel` |
+| `apply_snapshot_before` | index.js | `snapshot, willUpdateMessages, skip` | `skip` |
+| `open_modal_before` | modals.js | `modalPath, modal, cancel` | `cancel` |
+| `close_modal_before` | modals.js | `modalPath, modal, cancel` | `cancel` |
 
 ### Fine placement helpers
 
@@ -145,10 +200,56 @@ Placement behavior:
 
 ## Plugin Author Flow
 
-1. Pick an existing core breakpoint ID (`<x-extension id="...">`).
-2. Add an HTML/JS extension under `extensions/webui/<extension_point>/`.
-3. For HTML UI entries, use the baseline pattern: root `x-data` plus one explicit `x-move-*` directive.
-4. Put complete plugin pages/components in `webui/` and open them directly by path.
+1. Create `plugins/<plugin_id>/`.
+2. Add backend capabilities by convention (`api/`, `tools/`, `helpers/`, `extensions/python/`, `prompts/`, `agents/`).
+3. Pick a WebUI breakpoint or JS hook extension point.
+4. For HTML UI entries: place files under `extensions/webui/<extension_point>/`, use root `x-data` + one `x-move-*` directive.
+5. For JS hooks: place `*.js` files under `extensions/webui/<extension_point>/`, export a default async function.
+6. Place full plugin pages/components in `webui/` and open them directly by path.
+
+### Python extension example
+
+```python
+# plugins/my-plugin/extensions/python/monologue_end/_50_my_extension.py
+from python.helpers.extension import Extension
+
+class MyExtension(Extension):
+    async def execute(self, **kwargs):
+        pass
+```
+
+### HTML WebUI extension example
+
+```html
+<!-- plugins/my-plugin/extensions/webui/sidebar-quick-actions-main-start/my-button.html -->
+<div x-data>
+  <button
+    x-move-after=".config-button#dashboard"
+    class="config-button"
+    id="my-plugin-button"
+    @click="openModal('../plugins/my-plugin/webui/my-modal.html')"
+    title="My Plugin">
+    <span class="material-symbols-outlined">extension</span>
+  </button>
+</div>
+```
+
+### JS hook example
+
+```js
+// plugins/my-plugin/extensions/webui/send_message_before/transform.js
+export default async function(ctx) {
+  // prepend a tag to every outgoing message
+  ctx.message = "[my-plugin] " + ctx.message;
+}
+```
+
+### Full plugin UI page
+
+```html
+<!-- opened via openModal() or x-component -->
+<x-component path="../plugins/my-plugin/webui/my-modal.html"></x-component>
+```
 
 ## Routes
 
@@ -160,3 +261,6 @@ Placement behavior:
 
 - User plugins in `usr/plugins/` override repo plugins by plugin ID.
 - Runtime behavior is fully convention-driven from directory structure.
+- Extension point ordering between multiple plugins is currently implicit (filesystem order).
+- Project-specific plugin roots are not yet active (commented out in `get_plugin_roots()`).
+- When you need a new extension point for your plugin, submit a PR - we are actively expanding coverage based on community needs.

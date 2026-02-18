@@ -14,6 +14,7 @@
                 <div class="welcome-content">
                     <!-- Action Cards -->
                     <div class="welcome-actions">
+                        <x-extension id="welcome-actions-start"></x-extension>
                         <div class="welcome-action-card" @click="$store.welcomeStore.executeAction('new-chat')">
                             <span class="material-symbols-outlined welcome-action-icon">add_circle</span>
                             <h3 class="welcome-action-title">New Chat</h3>
@@ -49,6 +50,7 @@
                             <span class="material-symbols-outlined welcome-action-icon">code</span>
                             <h3 class="welcome-action-title">Visit GitHub</h3>
                         </div>
+                        <x-extension id="welcome-actions-end"></x-extension>
                     </div>
 
                     <div class="welcome-actions-footer">
@@ -72,6 +74,7 @@
 
                     <!-- Banner Section -->
                     <div class="welcome-banners" x-show="$store.welcomeStore.banners && $store.welcomeStore.banners.length > 0">
+                        <x-extension id="welcome-banners-start"></x-extension>
                         <template x-for="banner in $store.welcomeStore.sortedBanners" :key="banner.id">
                             <div class="welcome-banner" :class="$store.welcomeStore.getBannerClass(banner.type)">
                                 <!-- Banner Icon -->
@@ -94,6 +97,7 @@
                                 </button>
                             </div>
                         </template>
+                        <x-extension id="welcome-banners-end"></x-extension>
                     </div>
                 </div>
                 <x-extension id="welcome-screen-end"></x-extension>
@@ -116,7 +120,9 @@
             position: relative;
             overflow: hidden;
         }
-        .welcome-container > x-extension {
+        .welcome-container > x-extension,
+        .welcome-actions > x-extension,
+        .welcome-banners > x-extension {
             display: contents;
         }
 

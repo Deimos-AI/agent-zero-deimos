@@ -1,5 +1,6 @@
 import * as msgs from "/js/messages.js";
 import * as api from "/js/api.js";
+import { callJsExtensions } from "/js/extensions.js";
 import * as css from "/js/css.js";
 import { sleep } from "/js/sleep.js";
 import { store as attachmentsStore } from "/components/chat/attachments/attachmentsStore.js";
@@ -38,9 +39,15 @@ let skipOneSpeech = false;
 
 export async function sendMessage() {
   try {
-    const message = inputStore.message.trim();
-    const attachmentsWithUrls = attachmentsStore.getAttachmentsForSending();
+    let message = inputStore.message.trim();
+    let attachmentsWithUrls = attachmentsStore.getAttachmentsForSending();
     const hasAttachments = attachmentsWithUrls.length > 0;
+
+    const sendCtx = { message, attachments: attachmentsWithUrls, context, cancel: false };
+    await callJsExtensions("send_message_before", sendCtx);
+    if (sendCtx.cancel) return;
+    message = sendCtx.message;
+    attachmentsWithUrls = sendCtx.attachments;
 
     // If empty input but has queued messages, send all queued
     if (!message && !hasAttachments && messageQueueStore.hasQueue) {
@@ -310,6 +317,14 @@ export async function applySnapshot(snapshot, options = {}) {
   ) {
     return { updated: false };
   }
+
+  const snapCtx = {
+    snapshot,
+    willUpdateMessages: lastLogVersion != snapshot.log_version,
+    skip: false,
+  };
+  await callJsExtensions("apply_snapshot_before", snapCtx);
+  if (snapCtx.skip) return { updated: false };
 
   // If the chat has been reset, reset cursors and request a resync from the caller.
   // Note: on first snapshot after a context switch, lastLogGuid is intentionally empty,

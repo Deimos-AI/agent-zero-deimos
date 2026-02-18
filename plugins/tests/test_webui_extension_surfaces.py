@@ -44,6 +44,10 @@ SURFACE_SCENARIOS: list[tuple[str, str]] = [
     ("chat-top-end", "webui/components/chat/top-section/chat-top.html"),
     ("welcome-screen-start", "webui/components/welcome/welcome-screen.html"),
     ("welcome-screen-end", "webui/components/welcome/welcome-screen.html"),
+    ("welcome-actions-start", "webui/components/welcome/welcome-screen.html"),
+    ("welcome-actions-end", "webui/components/welcome/welcome-screen.html"),
+    ("welcome-banners-start", "webui/components/welcome/welcome-screen.html"),
+    ("welcome-banners-end", "webui/components/welcome/welcome-screen.html"),
     ("modal-shell-start", "webui/js/modals.js"),
     ("modal-shell-end", "webui/js/modals.js"),
 ]
