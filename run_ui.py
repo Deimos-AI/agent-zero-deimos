@@ -2,19 +2,12 @@ from datetime import timedelta
 import os
 import secrets
 import time
-import socket
-import struct
-from functools import wraps
 import threading
 import asyncio
 
-from pathlib import Path
 import urllib.request
-import urllib.error
-from regex.regex import F
 import uvicorn
 from flask import Flask, request, Response, session, redirect, url_for, render_template_string
-from werkzeug.wrappers.response import Response as BaseResponse
 from werkzeug.wrappers.request import Request as WerkzeugRequest
 
 import initialize
@@ -22,8 +15,7 @@ from python.helpers import files, git, mcp_server, fasta2a_server, settings as s
 from python.helpers.files import get_abs_path
 from python.helpers import runtime, dotenv, process
 from python.helpers.websocket import WebSocketHandler, validate_ws_origin
-from python.helpers.extract_tools import load_classes_from_folder
-from python.helpers.api import ApiHandler
+from python.helpers.api import register_api_route, requires_auth
 from python.helpers.print_style import PrintStyle
 from python.helpers import login
 import socketio  # type: ignore[import-untyped]
@@ -88,107 +80,6 @@ websocket_manager.set_server_restart_broadcast(
 
 # Set up basic authentication for UI and API but not MCP
 # basic_auth = BasicAuth(webapp)
-
-
-def is_loopback_address(address):
-    loopback_checker = {
-        socket.AF_INET: lambda x: (
-            struct.unpack("!I", socket.inet_aton(x))[0] >> (32 - 8)
-        ) == 127,
-        socket.AF_INET6: lambda x: x == "::1",
-    }
-    address_type = "hostname"
-    try:
-        socket.inet_pton(socket.AF_INET6, address)
-        address_type = "ipv6"
-    except socket.error:
-        try:
-            socket.inet_pton(socket.AF_INET, address)
-            address_type = "ipv4"
-        except socket.error:
-            address_type = "hostname"
-
-    if address_type == "ipv4":
-        return loopback_checker[socket.AF_INET](address)
-    elif address_type == "ipv6":
-        return loopback_checker[socket.AF_INET6](address)
-    else:
-        for family in (socket.AF_INET, socket.AF_INET6):
-            try:
-                r = socket.getaddrinfo(address, None, family, socket.SOCK_STREAM)
-            except socket.gaierror:
-                return False
-            for family, _, _, _, sockaddr in r:
-                if not loopback_checker[family](sockaddr[0]):
-                    return False
-        return True
-
-
-def requires_api_key(f):
-    @wraps(f)
-    async def decorated(*args, **kwargs):
-        # Use the auth token from settings (same as MCP server)
-        from python.helpers.settings import get_settings
-        valid_api_key = get_settings()["mcp_server_token"]
-
-        if api_key := request.headers.get("X-API-KEY"):
-            if api_key != valid_api_key:
-                return Response("Invalid API key", 401)
-        elif request.json and request.json.get("api_key"):
-            api_key = request.json.get("api_key")
-            if api_key != valid_api_key:
-                return Response("Invalid API key", 401)
-        else:
-            return Response("API key required", 401)
-        return await f(*args, **kwargs)
-
-    return decorated
-
-
-# allow only loopback addresses
-def requires_loopback(f):
-    @wraps(f)
-    async def decorated(*args, **kwargs):
-        if not is_loopback_address(request.remote_addr):
-            return Response(
-                "Access denied.",
-                403,
-                {},
-            )
-        return await f(*args, **kwargs)
-
-    return decorated
-
-
-# require authentication for handlers
-def requires_auth(f):
-    @wraps(f)
-    async def decorated(*args, **kwargs):
-        user_pass_hash = login.get_credentials_hash()
-        # If no auth is configured, just proceed
-        if not user_pass_hash:
-            return await f(*args, **kwargs)
-
-        if session.get('authentication') != user_pass_hash:
-            return redirect(url_for('login_handler'))
-
-        return await f(*args, **kwargs)
-
-    return decorated
-
-
-def csrf_protect(f):
-    @wraps(f)
-    async def decorated(*args, **kwargs):
-        token = session.get("csrf_token")
-        header = request.headers.get("X-CSRF-Token")
-        cookie = request.cookies.get("csrf_token_" + runtime.get_runtime_id())
-        sent = header or cookie
-        if not token or not sent or token != sent:
-            return Response("CSRF token missing or invalid", 403)
-        return await f(*args, **kwargs)
-
-    return decorated
 
 
 @webapp.route("/login", methods=["GET", "POST"])
@@ -480,46 +371,7 @@ def run():
         runtime.get_arg("host") or dotenv.get_dotenv_value("WEB_UI_HOST") or "localhost"
     )
 
-    def register_api_handler(app, handler: type[ApiHandler], url_prefix: str = ""):
-        name = handler.__module__.split(".")[-1]
-        instance = handler(app, lock)
-
-        async def handler_wrap() -> BaseResponse:
-            return await instance.handle_request(request=request)
-
-        if handler.requires_loopback():
-            handler_wrap = requires_loopback(handler_wrap)
-        if handler.requires_auth():
-            handler_wrap = requires_auth(handler_wrap)
-        if handler.requires_api_key():
-            handler_wrap = requires_api_key(handler_wrap)
-        if handler.requires_csrf():
-            handler_wrap = csrf_protect(handler_wrap)
-
-        route = f"{url_prefix}/{name}"
-        app.add_url_rule(
-            route,
-            route,
-            handler_wrap,
-            methods=handler.get_methods(),
-        )
-
-    handlers = load_classes_from_folder("python/api", "*.py", ApiHandler)
-    for handler in handlers:
-        register_api_handler(webapp, handler, url_prefix="/api")
-    
-    # Load API handlers from plugins (prefixed with /plugins/{plugin_id}/)
-    from python.helpers import plugins
-
-    for plugin in plugins.get_enhanced_plugins_list():
-        api_path = Path(plugin.path) / "api"
-        if not api_path.exists() or not api_path.is_dir():
-            continue
-
-        plugin_handlers = load_classes_from_folder(str(api_path), "*.py", ApiHandler)
-        for handler in plugin_handlers:
-            # prefixed route for explicit namespacing
-            register_api_handler(webapp, handler, url_prefix=f"/api/plugins/{plugin.name}")
+    register_api_route(webapp, lock)
 
     handlers_by_namespace = _build_websocket_handlers_by_namespace(socketio_server, lock)
     configure_websocket_namespaces(
