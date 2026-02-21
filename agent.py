@@ -303,7 +303,6 @@ class AgentConfig:
     browser_model: models.ModelConfig
     mcp_servers: str
     profile: str = ""
-    memory_subdir: str = ""
     knowledge_subdirs: list[str] = field(default_factory=lambda: ["default", "custom"])
     browser_http_headers: dict[str, str] = field(
         default_factory=dict

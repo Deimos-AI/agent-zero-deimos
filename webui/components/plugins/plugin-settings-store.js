@@ -301,6 +301,11 @@ const model = {
         this.loadedProjectName = "";
         this.loadedAgentProfile = "";
         this.error = null;
+        this.isLoading = false;
+        this.isSaving = false;
+        this.isListingConfigs = false;
+        this.configsError = null;
+        this.configs = [];
     },
 
     // Reactive URL for the plugin's settings component (used with x-html injection)

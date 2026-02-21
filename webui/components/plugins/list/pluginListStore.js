@@ -14,6 +14,7 @@ const model = {
   activeTab: "custom",
 
   async init() {
+    this.loading = false;
     await this.setTab('custom');
     if (this.plugins.length === 0) {
         await this.setTab('builtin');

@@ -34,9 +34,6 @@ class BasicProjectData(TypedDict):
     instructions: str
     color: str
     git_url: str
-    memory: Literal[
-        "own", "global"
-    ]  # in the future we can add cutom and point to another existing folder
     file_structure: FileStructureInjectionSettings
 
 class GitStatusData(TypedDict, total=False):
@@ -158,7 +155,6 @@ def _normalizeBasicData(data: BasicProjectData) -> BasicProjectData:
         "instructions": data.get("instructions", ""),
         "color": data.get("color", ""),
         "git_url": data.get("git_url", ""),
-        "memory": data.get("memory", "own"),
         "file_structure": data.get(
             "file_structure",
             _default_file_structure_settings(),
@@ -179,7 +175,6 @@ def _normalizeEditData(data: EditProjectData) -> EditProjectData:
         "instruction_files_count": data.get("instruction_files_count", 0),
         "knowledge_files_count": data.get("knowledge_files_count", 0),
         "secrets": data.get("secrets", ""),
-        "memory": data.get("memory", "own"),
         "file_structure": data.get(
             "file_structure",
             _default_file_structure_settings(),
@@ -461,16 +456,6 @@ def save_project_secrets(name: str, secrets: str):
 
     secrets_manager = get_project_secrets_manager(name)
     secrets_manager.save_secrets_with_merge(secrets)
-
-
-def get_context_memory_subdir(context: "AgentContext") -> str | None:
-    # if a project is active and has memory isolation set, return the project memory subdir
-    project_name = get_context_project_name(context)
-    if project_name:
-        project_data = load_basic_project_data(project_name)
-        if project_data["memory"] == "own":
-            return "projects/" + project_name
-    return None  # no memory override
 
 
 def create_project_meta_folders(name: str):

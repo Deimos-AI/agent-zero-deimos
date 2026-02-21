@@ -23,7 +23,7 @@ import os, json
 import numpy as np
 
 from python.helpers.print_style import PrintStyle
-from python.helpers import files, plugins
+from python.helpers import files, plugins, projects
 from langchain_core.documents import Document
 from . import knowledge_import
 from python.helpers.log import Log, LogItem
@@ -520,17 +520,16 @@ def get_agent_memory_subdir(agent: Agent) -> str:
 
 
 def get_context_memory_subdir(context: AgentContext) -> str:
-    # if project is active, use project memory subdir
-    from python.helpers.projects import (
-        get_context_memory_subdir as get_project_memory_subdir,
-    )
+    config = plugins.get_plugin_config("memory")
+    
+    # Check if project isolation is enabled and we are in a project
+    if config.get("project_memory_isolation", True):
+        project_name = projects.get_context_project_name(context)
+        if project_name:
+            return "projects/" + project_name
 
-    memory_subdir = get_project_memory_subdir(context)
-    if memory_subdir:
-        return memory_subdir
-
-    # no project, regular memory subdir
-    return plugins.get_plugin_config("memory").get("agent_memory_subdir", "default")
+    # Fallback to configured subdir or default
+    return config.get("agent_memory_subdir", "") or "default"
 
 
 def get_existing_memory_subdirs() -> list[str]:

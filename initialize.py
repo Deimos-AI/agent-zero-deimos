@@ -78,7 +78,6 @@ def initialize_agent(override_settings: dict | None = None):
         embeddings_model=embedding_llm,
         browser_model=browser_llm,
         profile=current_settings["agent_profile"],
-        memory_subdir=current_settings["agent_memory_subdir"],
         knowledge_subdirs=[current_settings["agent_knowledge_subdir"], "default"],
         mcp_servers=current_settings["mcp_servers"],
         browser_http_headers=current_settings["browser_http_headers"],

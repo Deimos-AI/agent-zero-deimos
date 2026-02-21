@@ -1,4 +1,5 @@
 {
+    "project_memory_isolation": true,
     "memory_recall_enabled": true,
     "memory_recall_delayed": false,
     "memory_recall_interval": 3,
@@ -13,5 +14,5 @@
     "memory_memorize_enabled": true,
     "memory_memorize_consolidation": true,
     "memory_memorize_replace_threshold": 0.9,
-    "agent_memory_subdir": ""
+    "agent_memory_subdir": "default"
 }

@@ -92,7 +92,6 @@ class Settings(TypedDict):
     browser_http_headers: dict[str, Any]
 
     agent_profile: str
-    agent_memory_subdir: str
     agent_knowledge_subdir: str
 
     workdir_path: str
@@ -102,21 +101,6 @@ class Settings(TypedDict):
     workdir_max_folders: int
     workdir_max_lines: int
     workdir_gitignore: str
-
-    memory_recall_enabled: bool
-    memory_recall_delayed: bool
-    memory_recall_interval: int
-    memory_recall_history_len: int
-    memory_recall_memories_max_search: int
-    memory_recall_solutions_max_search: int
-    memory_recall_memories_max_result: int
-    memory_recall_solutions_max_result: int
-    memory_recall_similarity_threshold: float
-    memory_recall_query_prep: bool
-    memory_recall_post_filter: bool
-    memory_memorize_enabled: bool
-    memory_memorize_consolidation: bool
-    memory_memorize_replace_threshold: float
 
     api_keys: dict[str, str]
 
@@ -547,26 +531,11 @@ def get_default_settings() -> Settings:
         browser_model_rl_output=get_default_value("browser_model_rl_output", 0),
         browser_model_kwargs=get_default_value("browser_model_kwargs", {}),
         browser_http_headers=get_default_value("browser_http_headers", {}),
-        memory_recall_enabled=get_default_value("memory_recall_enabled", True),
-        memory_recall_delayed=get_default_value("memory_recall_delayed", False),
-        memory_recall_interval=get_default_value("memory_recall_interval", 3),
-        memory_recall_history_len=get_default_value("memory_recall_history_len", 10000),
-        memory_recall_memories_max_search=get_default_value("memory_recall_memories_max_search", 12),
-        memory_recall_solutions_max_search=get_default_value("memory_recall_solutions_max_search", 8),
-        memory_recall_memories_max_result=get_default_value("memory_recall_memories_max_result", 5),
-        memory_recall_solutions_max_result=get_default_value("memory_recall_solutions_max_result", 3),
-        memory_recall_similarity_threshold=get_default_value("memory_recall_similarity_threshold", 0.7),
-        memory_recall_query_prep=get_default_value("memory_recall_query_prep", False),
-        memory_recall_post_filter=get_default_value("memory_recall_post_filter", False),
-        memory_memorize_enabled=get_default_value("memory_memorize_enabled", True),
-        memory_memorize_consolidation=get_default_value("memory_memorize_consolidation", True),
-        memory_memorize_replace_threshold=get_default_value("memory_memorize_replace_threshold", 0.9),
         api_keys={},
         auth_login="",
         auth_password="",
         root_password="",
         agent_profile=get_default_value("agent_profile", "agent0"),
-        agent_memory_subdir=get_default_value("agent_memory_subdir", "default"),
         agent_knowledge_subdir=get_default_value("agent_knowledge_subdir", "custom"),
         workdir_path=get_default_value("workdir_path", files.get_abs_path_dockerized("usr/workdir")),
         workdir_show=get_default_value("workdir_show", True),

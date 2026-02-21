@@ -13,16 +13,30 @@
                     context awareness.
                 </div>
 
+                <div class="field" x-show="$store.pluginSettings.projectName">
+                    <div class="field-label">
+                        <div class="field-title">Project Isolation</div>
+                        <div class="field-description">
+                            If enabled, this project uses its own memory folder (projects/NAME). If disabled, it shares the global memory (default or custom subdir).
+                        </div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="$store.pluginSettings.settings.project_memory_isolation" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="field">
                     <div class="field-label">
                         <div class="field-title">Memory Subdirectory</div>
                         <div class="field-description">
-                            Subdirectory of /memory folder to use for agent memory storage. Used to separate memory
-                            storage between different instances.
+                            Subdirectory of /memory folder.
                         </div>
                     </div>
                     <div class="field-control">
-                        <input type="text" x-model="$store.pluginSettings.settings.agent_memory_subdir" />
+                        <input type="text" x-model="$store.pluginSettings.settings.agent_memory_subdir" placeholder="Auto (Project-isolated)" />
                     </div>
                 </div>
 
