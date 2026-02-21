@@ -86,7 +86,15 @@ def is_official_agent_zero_repo() -> bool:
         if remote_url.endswith(".git"):
             remote_url = remote_url[:-4]
 
-        return remote_url.endswith("github.com/agent0ai/agent-zero") or remote_url.endswith("github.com:agent0ai/agent-zero")
+        allowed_repos = [
+            "agent0ai/agent-zero",
+            "frdel/agent-zero",
+        ]
+        return any(
+            remote_url.endswith(f"github.com/{repo_name}")
+            or remote_url.endswith(f"github.com:{repo_name}")
+            for repo_name in allowed_repos
+        )
     except Exception:
         return False
 
