@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re, json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING
 
 from python.helpers import files, print_style
 from pydantic import BaseModel, Field
@@ -16,11 +16,15 @@ _META_TARGET_RE = re.compile(
     re.IGNORECASE,
 )
 
+type ToggleState = Literal["enabled", "disabled", "advanced"]
+
+
 META_FILE_NAME = "plugin.json"
 CONFIG_FILE_NAME = "config.json"
 CONFIG_DEFAULT_FILE_NAME = "config.default.json"
 DISABLED_FILE_NAME = ".disabled"
 ENABLED_FILE_NAME = ".enabled"
+TOGGLE_FILE_PATTERN = ".*abled"
 
 
 class PluginMetadata(BaseModel):
@@ -30,6 +34,7 @@ class PluginMetadata(BaseModel):
     settings_sections: List[str] = Field(default_factory=list)
     per_project_config: bool = False
     per_agent_config: bool = False
+    always_enabled: bool = False
 
 
 class PluginListItem(BaseModel):
@@ -86,6 +91,7 @@ def get_enhanced_plugins_list(
                 )
                 has_main_screen = files.exists(str(d / "webui" / "main.html"))
                 has_config_screen = files.exists(str(d / "webui" / "config.html"))
+                toggle_state = get_toggle_state(meta.name)
                 results.append(
                     PluginListItem(
                         name=d.name,
@@ -167,15 +173,13 @@ def get_enabled_plugins(agent: Agent | None):
     plugins = get_plugins_list()
     active = []
 
-    if agent:
-        from python.helpers import subagents
-
     for plugin in plugins:
         # plugins are toggled via .enabled / .disabled files
         # every plugin is on by default, unless disabled in usr dir
         enabled = True
 
         if agent:
+            from python.helpers import subagents
             agent_paths = subagents.get_paths(
                 agent,
                 files.PLUGINS_DIR,
@@ -203,6 +207,14 @@ def get_enabled_plugins(agent: Agent | None):
 
     return active
 
+
+def get_toggle_state(plugin_name: str) -> ToggleState:
+    return "enabled"
+
+
+def toggle_plugin(plugin_name: str, enabled: bool, project_name: str = "", agent_profile: str = ""):
+    pass
+    
 
 def get_webui_extensions(extension_point: str, filters: List[str] | None = None):
     entries: List[str] = []
