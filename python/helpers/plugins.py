@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re, json
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING, TypedDict
 
 from python.helpers import files, print_style
 from pydantic import BaseModel, Field
@@ -17,14 +17,17 @@ _META_TARGET_RE = re.compile(
 )
 
 type ToggleState = Literal["enabled", "disabled", "advanced"]
-
+class PluginAssetFile(TypedDict):
+    path: str
+    project_name: str
+    agent_profile: str
 
 META_FILE_NAME = "plugin.json"
 CONFIG_FILE_NAME = "config.json"
 CONFIG_DEFAULT_FILE_NAME = "config.default.json"
-DISABLED_FILE_NAME = ".disabled"
-ENABLED_FILE_NAME = ".enabled"
-TOGGLE_FILE_PATTERN = ".*abled"
+DISABLED_FILE_NAME = ".toggle-0"
+ENABLED_FILE_NAME = ".toggle-1"
+TOGGLE_FILE_PATTERN = "*.toggle-[01]"
 
 
 class PluginMetadata(BaseModel):
@@ -49,6 +52,7 @@ class PluginListItem(BaseModel):
     is_custom: bool = False
     has_main_screen: bool = False
     has_config_screen: bool = False
+    toggle_state: ToggleState = "disabled"
 
 
 def get_plugin_roots() -> List[str]:
@@ -105,6 +109,7 @@ def get_enhanced_plugins_list(
                         is_custom=is_custom,
                         has_main_screen=has_main_screen,
                         has_config_screen=has_config_screen,
+                        toggle_state=toggle_state,
                     )
                 )
             except:
@@ -115,6 +120,15 @@ def get_enhanced_plugins_list(
     if builtin:
         load_plugins(files.get_abs_path(files.PLUGINS_DIR), False)
     return results
+
+
+def get_plugin_meta(plugin_name: str):
+    plugin_dir = find_plugin_dir(plugin_name)
+    if not plugin_dir:
+        return None
+    return PluginMetadata.model_validate(
+        files.read_file_json(files.get_abs_path(plugin_dir, META_FILE_NAME))
+    )
 
 
 def find_plugin_dir(plugin_name: str):
@@ -180,6 +194,7 @@ def get_enabled_plugins(agent: Agent | None):
 
         if agent:
             from python.helpers import subagents
+
             agent_paths = subagents.get_paths(
                 agent,
                 files.PLUGINS_DIR,
@@ -209,12 +224,50 @@ def get_enabled_plugins(agent: Agent | None):
 
 
 def get_toggle_state(plugin_name: str) -> ToggleState:
-    return "enabled"
+    meta = get_plugin_meta(plugin_name)
+    if not meta:
+        return "disabled"
+    if meta.always_enabled:
+        return "enabled"    
+
+    state = "enabled"
+
+    # toggles inside of user directory (there should be only one, but let's make it work in any case)
+    usr_toggles = files.find_existing_paths_by_pattern(files.get_abs_path(files.USER_DIR, files.PLUGINS_DIR, plugin_name, TOGGLE_FILE_PATTERN))
+    for toggle in usr_toggles:
+        if toggle.endswith(ENABLED_FILE_NAME):
+            state = "enabled"
+        if toggle.endswith(DISABLED_FILE_NAME):
+            state = "disabled"
+
+    # if there are more toggles in project/agent directories, return advanced
+    if meta.per_agent_config or meta.per_project_config:
+        configs = find_plugin_assets(
+            TOGGLE_FILE_PATTERN,
+            plugin_name=plugin_name,
+            project_name="*" if meta.per_project_config else "",
+            agent_profile="*" if meta.per_agent_config else "",
+            only_first=False,
+        )
+        if len(configs) > len(usr_toggles):
+            state = "advanced"
+        
+    return state
 
 
-def toggle_plugin(plugin_name: str, enabled: bool, project_name: str = "", agent_profile: str = ""):
-    pass
-    
+def toggle_plugin(
+    plugin_name: str, enabled: bool, project_name: str = "", agent_profile: str = ""
+):
+    enabled_file = determine_plugin_asset_path(plugin_name, project_name, agent_profile, ENABLED_FILE_NAME)
+    disabled_file = determine_plugin_asset_path(plugin_name, project_name, agent_profile, DISABLED_FILE_NAME)
+
+    if enabled:
+        files.delete_file(disabled_file)
+        files.write_file(enabled_file, "")
+    else:
+        files.delete_file(enabled_file)
+        files.write_file(disabled_file, "")
+
 
 def get_webui_extensions(extension_point: str, filters: List[str] | None = None):
     entries: List[str] = []
@@ -229,16 +282,29 @@ def get_webui_extensions(extension_point: str, filters: List[str] | None = None)
     return entries
 
 
-def get_plugin_config(plugin_name: str, agent: Agent | None=None, project_name:str|None=None, agent_profile:str|None=None):
-    
+def get_plugin_config(
+    plugin_name: str,
+    agent: Agent | None = None,
+    project_name: str | None = None,
+    agent_profile: str | None = None,
+):
+
     if project_name is None and agent is not None:
         from python.helpers import projects
+
         project_name = projects.get_context_project_name(agent.context)
     if agent_profile is None and agent is not None:
         agent_profile = agent.config.profile
-    
+
     # find config.json in all possible places
-    file_path = find_plugin_asset(plugin_name, CONFIG_FILE_NAME, project_name=project_name or "", agent_profile=agent_profile or "")
+    file = find_plugin_asset(
+        plugin_name,
+        CONFIG_FILE_NAME,
+        project_name=project_name or "",
+        agent_profile=agent_profile or "",
+    )
+    file_path = file.get("path", "") if file else ""
+
     # use default config if not found
     if not file_path:
         file_path = files.get_abs_path(
@@ -259,15 +325,17 @@ def save_plugin_config(
         files.write_file(file_path, json.dumps(settings))
 
 
-def find_plugin_asset(plugin_name: str, *subpaths: str, project_name="", agent_profile=""):
+def find_plugin_asset(
+    plugin_name: str, *subpaths: str, project_name="", agent_profile=""
+):
     result = find_plugin_assets(
         *subpaths,
         plugin_name=plugin_name,
         project_name=project_name,
         agent_profile=agent_profile,
-        only_first=True
+        only_first=True,
     )
-    return result[0]["path"] if result else None
+    return result[0] if result else None
 
 
 def find_plugin_assets(
@@ -276,10 +344,10 @@ def find_plugin_assets(
     project_name: str = "*",
     agent_profile: str = "*",
     only_first: bool = False,
-) -> list[dict]:
+) -> list[PluginAssetFile]:
     from python.helpers import projects, subagents
 
-    results: list[dict] = []
+    results: list[PluginAssetFile] = []
 
     def _collect(path: str, proj: str, profile: str) -> bool:
         matched_paths = (
@@ -301,7 +369,9 @@ def find_plugin_assets(
 
         for matched in matched_paths:
             inferred_proj = _after(matched, "/projects/") if need_proj else proj
-            inferred_prof = _after(matched, "/agents/", last=True) if need_prof else profile
+            inferred_prof = (
+                _after(matched, "/agents/", last=True) if need_prof else profile
+            )
             results.append(
                 {
                     "project_name": inferred_proj,
