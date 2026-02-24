@@ -82,7 +82,14 @@ class Plugins(ApiHandler):
                 agent_profile="*",
                 only_first=False,
             )
-            allowed_paths = {c.get("path", "") for c in configs}
+            toggles = plugins.find_plugin_assets(
+                plugins.TOGGLE_FILE_PATTERN,
+                plugin_name=plugin_name,
+                project_name="*",
+                agent_profile="*",
+                only_first=False,
+            )
+            allowed_paths = {c.get("path", "") for c in configs + toggles}
             if path not in allowed_paths:
                 return Response(status=400, response="Invalid path")
 
@@ -106,6 +113,22 @@ class Plugins(ApiHandler):
             if not isinstance(settings, dict):
                 return Response(status=400, response="settings must be an object")
             plugins.save_plugin_config(plugin_name, project_name, agent_profile, settings)
+            return {"ok": True}
+
+        if action == "toggle_plugin":
+            plugin_name = input.get("plugin_name", "")
+            enabled = input.get("enabled")
+            project_name = input.get("project_name", "")
+            agent_profile = input.get("agent_profile", "")
+
+            if not plugin_name:
+                return Response(status=400, response="Missing plugin_name")
+            if enabled is None:
+                return Response(status=400, response="Missing enabled state")
+
+            plugins.toggle_plugin(
+                plugin_name, bool(enabled), project_name, agent_profile
+            )
             return {"ok": True}
 
         return Response(status=400, response=f"Unknown action: {action}")

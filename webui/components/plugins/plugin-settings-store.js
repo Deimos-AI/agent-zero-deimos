@@ -52,6 +52,14 @@ const model = {
         }
 
         await this.loadSettings();
+
+        // Mirror scope change to pluginToggle so activation state stays in sync
+        const toggleStore = Alpine.store('pluginToggle');
+        if (toggleStore) {
+            toggleStore.projectName = nextProject;
+            toggleStore.agentProfileKey = nextProfile;
+            toggleStore.calculateStatus();
+        }
     },
 
     // where the settings were actually loaded from
@@ -166,17 +174,19 @@ const model = {
     error: null,
 
     // Called by the subsection button before openModal()
-    async open(pluginName) {
+    // Optional scope: { projectName, agentProfileKey } — skips redundant global loadSettings()
+    // when the caller already knows which scope to open at.
+    async open(pluginName, { projectName = "", agentProfileKey = "" } = {}) {
         this.pluginName = pluginName;
         this.pluginMeta = null;
         this.settings = {};
         this.settingsSnapshotJson = "";
         this.error = null;
         this.saveMode = 'plugin';
-        this.projectName = "";
-        this.agentProfileKey = "";
-        this.previousProjectName = "";
-        this.previousAgentProfileKey = "";
+        this.projectName = projectName;
+        this.agentProfileKey = agentProfileKey;
+        this.previousProjectName = projectName;
+        this.previousAgentProfileKey = agentProfileKey;
         this.loadedPath = "";
         this.loadedProjectName = "";
         this.loadedAgentProfile = "";

@@ -1,6 +1,7 @@
 import { createStore } from "/js/AlpineStore.js";
 import * as api from "/js/api.js";
 import "/components/plugins/plugin-settings-store.js";
+import "/components/plugins/toggle/plugin-toggle-store.js";
 import {
   store as notificationStore,
   defaultPriority,
@@ -56,14 +57,63 @@ const model = {
   async openPluginConfig(plugin) {
     if (!plugin?.name || !plugin?.has_config_screen) return;
     try {
+      // Initialize toggle store for activation state UI in settings modal
+      const pluginToggleStore = Alpine.store("pluginToggle");
+      if (pluginToggleStore?.open) await pluginToggleStore.open(plugin);
+
       const pluginSettingsStore = Alpine.store("pluginSettings");
       if (!pluginSettingsStore?.open) {
         throw new Error("Plugin settings store is unavailable.");
+      }
+      // Set saveMode before open() so loadSettings picks up the right mode
+      if (plugin.settings_sections?.includes('core')) {
+        pluginSettingsStore.saveMode = 'core';
       }
       await pluginSettingsStore.open(plugin.name);
       window.openModal?.("components/plugins/plugin-settings.html");
     } catch (e) {
       showErrorNotification(e, "Failed to open plugin config");
+    }
+  },
+
+  async openPluginAdvancedToggle(plugin) {
+    if (!plugin?.name) return;
+    this.selectedPlugin = plugin;
+    try {
+        const pluginToggleStore = Alpine.store("pluginToggle");
+        if (!pluginToggleStore?.open) {
+            throw new Error("Plugin toggle store is unavailable.");
+        }
+        await pluginToggleStore.open(plugin);
+        window.openModal?.("components/plugins/toggle/plugin-toggle-advanced.html");
+    } catch (e) {
+        showErrorNotification(e, "Failed to open plugin switch");
+    }
+  },
+
+  async updateToggle(plugin, value) {
+    if (!plugin?.name) return;
+    
+    if (value === 'advanced') {
+        await this.openPluginAdvancedToggle(plugin);
+        return; 
+    }
+
+    const enabled = value === 'enabled';
+    this.loading = true; // Show loading state
+    try {
+        const response = await api.callJsonApi("plugins", {
+            action: "toggle_plugin",
+            plugin_name: plugin.name,
+            enabled: enabled,
+            project_name: "", // Global
+            agent_profile: "" // Global
+        });
+        if (response?.error) throw new Error(response.error);
+        await this.refresh();
+    } catch (e) {
+        showErrorNotification(e, "Failed to toggle plugin");
+        this.loading = false;
     }
   },
 

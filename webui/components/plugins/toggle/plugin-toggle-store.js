@@ -1,206 +1,55 @@
 import { createStore } from "/js/AlpineStore.js";
+import { store as settingsStore } from "/components/plugins/plugin-settings-store.js";
 
 const fetchApi = globalThis.fetchApi;
 
 const model = {
-    // which plugin this modal is showing
     pluginName: null,
-    pluginMeta: null,
-
-    // context selectors (mirrors skills list pattern)
+    
+    // Context selectors
     projects: [],
     agentProfiles: [],
     projectName: "",
     agentProfileKey: "",
 
-    // plugin settings data (plugins bind their fields here)
-    settings: {},
-
-    settingsSnapshotJson: "",
-    previousProjectName: "",
-    previousAgentProfileKey: "",
-
-    _toComparableJson(value) {
-        try {
-            return JSON.stringify(value ?? {});
-        } catch {
-            return "";
-        }
-    },
-
-    get hasUnsavedChanges() {
-        return this._toComparableJson(this.settings) !== (this.settingsSnapshotJson || "");
-    },
-
-    confirmDiscardUnsavedChanges() {
-        if (!this.hasUnsavedChanges) return true;
-        return window.confirm("You have unsaved changes that will be lost. Continue?");
-    },
-
-    async onScopeChanged() {
-        const nextProject = this.projectName || "";
-        const nextProfile = this.agentProfileKey || "";
-        const prevProject = this.previousProjectName || "";
-        const prevProfile = this.previousAgentProfileKey || "";
-
-        if (nextProject === prevProject && nextProfile === prevProfile) return;
-
-        if (!this.confirmDiscardUnsavedChanges()) {
-            this.projectName = prevProject;
-            this.agentProfileKey = prevProfile;
-            return;
-        }
-
-        await this.loadSettings();
-    },
-
-    // where the settings were actually loaded from
-    loadedPath: "",
-    loadedProjectName: "",
-    loadedAgentProfile: "",
-
-    projectLabel(key) {
-        if (!key) return "Global";
-        const found = (this.projects || []).find((p) => p.key === key);
-        return found?.label || key;
-    },
-
-    agentProfileLabel(key) {
-        if (!key) return "All profiles";
-        const found = (this.agentProfiles || []).find((p) => p.key === key);
-        return found?.label || key;
-    },
-
-    get scopeMismatchMessage() {
-        const selectedProject = this.projectName || "";
-        const selectedProfile = this.agentProfileKey || "";
-        const loadedProject = this.loadedProjectName || "";
-        const loadedProfile = this.loadedAgentProfile || "";
-
-        if (!this.loadedPath) return "";
-        if (selectedProject === loadedProject && selectedProfile === loadedProfile) return "";
-
-        return `Settings do not yet exist for this combination, settings from ${this.projectLabel(loadedProject)}, ${this.agentProfileLabel(loadedProfile)} (${this.loadedPath}) will apply.`;
-    },
-
-    configs: [],
-    isListingConfigs: false,
-    configsError: null,
-
-    async openConfigListModal() {
-        await window.openModal?.("/components/plugins/plugin-configs.html");
-    },
-
-    async loadConfigList() {
-        if (!this.pluginName) return;
-        this.isListingConfigs = true;
-        this.configsError = null;
-        try {
-            const response = await fetchApi("/plugins", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "list_configs",
-                    plugin_name: this.pluginName,
-                }),
-            });
-            const result = await response.json().catch(() => ({}));
-            this.configs = result.ok ? (result.data || []) : [];
-            if (!result.ok) this.configsError = result.error || "Failed to load configurations";
-        } catch (e) {
-            this.configsError = e?.message || "Failed to load configurations";
-            this.configs = [];
-        } finally {
-            this.isListingConfigs = false;
-        }
-    },
-
-    async switchToConfig(projectName, agentProfile) {
-        if (!this.confirmDiscardUnsavedChanges()) return;
-        this.projectName = projectName || "";
-        this.agentProfileKey = agentProfile || "";
-        await this.loadSettings();
-        await window.closeModal?.();
-    },
-
-    async deleteConfig(projectName, agentProfile) {
-        if (!this.pluginName) return;
-        try {
-            const cfg = (this.configs || []).find(
-                (c) => (c?.project_name || "") === (projectName || "") && (c?.agent_profile || "") === (agentProfile || "")
-            );
-            const path = cfg?.path || "";
-            if (!path) {
-                this.configsError = "Configuration path not found";
-                return;
-            }
-
-            const response = await fetchApi("/plugins", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "delete_config",
-                    plugin_name: this.pluginName,
-                    path,
-                }),
-            });
-            const result = await response.json().catch(() => ({}));
-            if (!result.ok) {
-                this.configsError = result.error || "Delete failed";
-                return;
-            }
-
-            this.configsError = null;
-            await this.loadConfigList();
-        } catch (e) {
-            this.configsError = e?.message || "Delete failed";
-        }
-    },
-
-    // 'plugin' = save to plugin settings API
-    // 'core'   = save via $store.settings.saveSettings() (for plugins that surface core settings)
-    saveMode: 'plugin',
-
+    // State
     isLoading: false,
     isSaving: false,
     error: null,
+    
+    // Status: 'enabled' | 'disabled'
+    status: 'enabled',
+    alwaysEnabled: false,
+    explicitPath: null,
+    configs: [],
 
-    // Called by the subsection button before openModal()
-    async open(pluginName) {
-        this.pluginName = pluginName;
-        this.pluginMeta = null;
-        this.settings = {};
-        this.settingsSnapshotJson = "";
+    async open(plugin) {
+        this.isLoading = true;
         this.error = null;
-        this.saveMode = 'plugin';
+        this.projects = [];
+        this.agentProfiles = [];
         this.projectName = "";
         this.agentProfileKey = "";
-        this.previousProjectName = "";
-        this.previousAgentProfileKey = "";
-        this.loadedPath = "";
-        this.loadedProjectName = "";
-        this.loadedAgentProfile = "";
-        await Promise.all([this.loadProjects(), this.loadAgentProfiles()]);
-        await this.loadSettings();
-    },
+        this.configs = [];
 
-    // Called by x-create inside the modal on every open
-    async onModalOpen() {
-        if (this.pluginName) await this.loadSettings();
-    },
+        const pluginName = typeof plugin === 'string' ? plugin : plugin?.name;
+        this.pluginName = pluginName;
+        this.alwaysEnabled = typeof plugin === 'object' ? !!plugin.always_enabled : false;
 
-    async loadAgentProfiles() {
         try {
-            const response = await fetchApi("/agents", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "list" }),
-            });
-            const data = await response.json().catch(() => ({}));
-            this.agentProfiles = data.ok ? (data.data || []) : [];
-        } catch {
-            this.agentProfiles = [];
+            await Promise.all([this.loadProjects(), this.loadAgentProfiles()]);
+            await this.loadConfigs();
+        } finally {
+            this.isLoading = false;
         }
+    },
+
+    cleanup() {
+        this.pluginName = null;
+        this.projectName = "";
+        this.agentProfileKey = "";
+        this.error = null;
+        this.configs = [];
     },
 
     async loadProjects() {
@@ -217,102 +66,180 @@ const model = {
         }
     },
 
-    async loadSettings() {
+    async loadAgentProfiles() {
+        try {
+            const response = await fetchApi("/agents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "list" }),
+            });
+            const data = await response.json().catch(() => ({}));
+            this.agentProfiles = data.ok ? (data.data || []) : [];
+        } catch {
+            this.agentProfiles = [];
+        }
+    },
+
+    async loadConfigs() {
         if (!this.pluginName) return;
         this.isLoading = true;
-        this.error = null;
         try {
             const response = await fetchApi("/plugins", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    action: "get_config",
+                    action: "list_configs",
                     plugin_name: this.pluginName,
-                    project_name: this.projectName || "",
-                    agent_profile: this.agentProfileKey || "",
+                    asset_type: "toggle"
                 }),
             });
             const result = await response.json().catch(() => ({}));
-            this.settings = result.ok ? (result.data || {}) : {};
-            this.loadedPath = result.loaded_path || "";
-            this.loadedProjectName = result.loaded_project_name || "";
-            this.loadedAgentProfile = result.loaded_agent_profile || "";
-            if (!result.ok) this.error = result.error || "Failed to load settings";
+            this.configs = result.ok ? (result.data || []) : [];
+            this.calculateStatus();
         } catch (e) {
-            this.error = e?.message || "Failed to load settings";
-            this.settings = {};
+            this.error = e?.message || "Failed to load configurations";
         } finally {
-            this.settingsSnapshotJson = this._toComparableJson(this.settings);
-            this.previousProjectName = this.projectName || "";
-            this.previousAgentProfileKey = this.agentProfileKey || "";
             this.isLoading = false;
         }
     },
 
-    async save() {
+    async openConfigWithScope() {
         if (!this.pluginName) return;
 
-        // Core-backed plugins (e.g. memory) delegate to the settings store
-        if (this.saveMode === 'core') {
-            const coreStore = Alpine.store('settings');
-            if (coreStore?.saveSettings) {
-                const ok = await coreStore.saveSettings();
-                if (ok) window.closeModal?.();
-            }
-            return;
+        if (settingsStore.pluginName !== this.pluginName) {
+            // Different plugin — full init with current scope
+            await settingsStore.open(this.pluginName, {
+                projectName: this.projectName || "",
+                agentProfileKey: this.agentProfileKey || "",
+            });
+        } else {
+            // Same plugin — push current scope explicitly.
+            // onScopeChanged() syncs on @change events, but if the user never touched
+            // the scope selectors after the modal opened the settings store may still
+            // hold a stale scope from a prior session.
+            settingsStore.projectName = this.projectName || "";
+            settingsStore.agentProfileKey = this.agentProfileKey || "";
         }
+        await window.openModal?.("components/plugins/plugin-settings.html");
+    },
 
-        // Plugin-specific settings: persist to plugin settings API
-        this.isSaving = true;
-        this.error = null;
+    async openConfigListModal() {
+        await window.openModal?.("/components/plugins/toggle/plugin-toggles.html");
+    },
+
+    async loadConfigList() {
+        await this.loadConfigs();
+    },
+
+    async switchToConfig(projectName, agentProfile) {
+        this.projectName = projectName || "";
+        this.agentProfileKey = agentProfile || "";
+        this.onScopeChanged();
+        await window.closeModal?.();
+    },
+
+    async deleteConfig(path) {
+        if (!this.pluginName || !path) return;
+        this.isLoading = true;
         try {
             const response = await fetchApi("/plugins", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    action: "save_config",
+                    action: "delete_config",
+                    plugin_name: this.pluginName,
+                    path: path
+                }),
+            });
+            const result = await response.json();
+            if (!result.ok) throw new Error(result.error);
+            await this.loadConfigs();
+        } catch (e) {
+            this.error = e.message || "Delete failed";
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
+    calculateStatus() {
+        if (this.alwaysEnabled) {
+            this.explicitPath = null;
+            this.status = 'enabled';
+            return;
+        }
+
+        const p = this.projectName || "";
+        const a = this.agentProfileKey || "";
+        const explicit = this.configs.find(
+            c => (c.project_name||"") === p && (c.agent_profile||"") === a
+        );
+
+        if (explicit) {
+            this.explicitPath = explicit.path;
+            this.status = explicit.path.endsWith(".toggle-1") ? 'enabled' : 'disabled';
+        } else {
+            this.explicitPath = null;
+            this.status = 'enabled'; // default when no explicit config
+        }
+    },
+
+    async setEnabled(enabled) {
+        if (!this.pluginName || this.alwaysEnabled) return;
+        this.isSaving = true;
+        try {
+            const response = await fetchApi("/plugins", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "toggle_plugin",
                     plugin_name: this.pluginName,
                     project_name: this.projectName || "",
                     agent_profile: this.agentProfileKey || "",
-                    settings: this.settings,
+                    enabled: enabled
                 }),
             });
-            const result = await response.json().catch(() => ({}));
-            if (!result.ok) this.error = result.error || "Save failed";
-            else {
-                this.settingsSnapshotJson = this._toComparableJson(this.settings);
-                window.closeModal?.();
-            }
+            const result = await response.json();
+            if (!result.ok) throw new Error(result.error);
+            await new Promise(r => setTimeout(r, 100));
+            await this.loadConfigs();
         } catch (e) {
-            this.error = e?.message || "Save failed";
+            this.error = e.message || "Failed to save";
         } finally {
             this.isSaving = false;
         }
     },
 
-    cleanup() {
-        this.pluginName = null;
-        this.pluginMeta = null;
-        this.settings = {};
-        this.settingsSnapshotJson = "";
-        this.previousProjectName = "";
-        this.previousAgentProfileKey = "";
-        this.loadedPath = "";
-        this.loadedProjectName = "";
-        this.loadedAgentProfile = "";
-        this.error = null;
-        this.isLoading = false;
-        this.isSaving = false;
-        this.isListingConfigs = false;
-        this.configsError = null;
-        this.configs = [];
+    async onScopeChanged() {
+        this.calculateStatus();
+
+        // Sync scope with settings store so its loadSettings picks up the right context
+        settingsStore.projectName = this.projectName || "";
+        settingsStore.agentProfileKey = this.agentProfileKey || "";
+        await settingsStore.loadSettings();
     },
 
-    // Reactive URL for the plugin's settings component (used with x-html injection)
-    get settingsComponentHtml() {
-        if (!this.pluginName) return "";
-        return `<x-component path="/plugins/${this.pluginName}/webui/config.html"></x-component>`;
+    projectLabel(key) {
+        if (!key) return "Global";
+        const found = (this.projects || []).find(p => p.key === key);
+        return found?.label || key;
     },
+
+    agentProfileLabel(key) {
+        if (!key) return "All profiles";
+        const found = (this.agentProfiles || []).find(p => p.key === key);
+        return found?.label || key;
+    },
+
+    get statusLabel() {
+        return this.status === 'enabled' ? 'ON' : 'OFF';
+    },
+
+    get noScopeRuleMessage() {
+        if (this.alwaysEnabled || this.isLoading) return "";
+        if (this.configs.length === 0) return "No activation rules configured. Plugin defaults to ON.";
+        if (!this.explicitPath) return "No rule set for this scope. Status defaults to ON.";
+        return "";
+    }
 };
 
-export const store = createStore("pluginSettings", model);
+export const store = createStore("pluginToggle", model);
