@@ -1,4 +1,4 @@
-name: Example Agent
+title: Example Agent
 description: Example agent plugin demonstrating the Agent Zero plugin system.
 version: 1.0.0
 settings_sections: []

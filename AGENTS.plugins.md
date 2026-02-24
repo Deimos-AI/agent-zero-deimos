@@ -39,7 +39,7 @@ usr/plugins/<plugin_name>/
 
 ### plugin.yaml format
 ```yaml
-name: My Plugin
+title: My Plugin
 description: What this plugin does.
 version: 1.0.0
 settings_sections:

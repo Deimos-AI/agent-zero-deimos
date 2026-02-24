@@ -19,7 +19,7 @@ Primary references:
 Every plugin must have a plugin.yaml or it will not be discovered:
 
 ```yaml
-name: My Plugin
+title: My Plugin
 description: What this plugin does.
 version: 1.0.0
 settings_sections:

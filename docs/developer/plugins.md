@@ -24,7 +24,7 @@ On name collisions, user plugins take precedence.
 Every plugin must contain `plugin.yaml`:
 
 ```yaml
-name: My Plugin
+title: My Plugin
 description: What this plugin does.
 version: 1.0.0
 settings_sections:
