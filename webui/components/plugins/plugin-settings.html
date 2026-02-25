@@ -9,7 +9,7 @@
     <div x-data>
         <template x-if="$store.pluginSettings">
             <div x-create="$store.pluginSettings.onModalOpen()"
-                 x-destroy="$store.pluginSettings.cleanup()">
+                 x-destroy="$store.pluginSettings.cleanup(); $dispatch('plugin-modal-closed')">
 
                 <!-- Context toolbar: Project + Agent profile (only when at least one scope is configurable) -->
                 <div class="plugin-settings-scope-section"

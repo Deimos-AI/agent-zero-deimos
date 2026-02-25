@@ -305,8 +305,23 @@ def get_toggle_state(plugin_name: str) -> ToggleState:
 
 
 def toggle_plugin(
-    plugin_name: str, enabled: bool, project_name: str = "", agent_profile: str = ""
+    plugin_name: str,
+    enabled: bool,
+    project_name: str = "",
+    agent_profile: str = "",
+    clear_overrides: bool = False,
 ):
+    if clear_overrides:
+        all_toggles = find_plugin_assets(
+            TOGGLE_FILE_PATTERN,
+            plugin_name=plugin_name,
+            project_name="*",
+            agent_profile="*",
+            only_first=False,
+        )
+        for toggle in all_toggles:
+            files.delete_file(toggle["path"])
+
     enabled_file = determine_plugin_asset_path(
         plugin_name, project_name, agent_profile, ENABLED_FILE_NAME
     )

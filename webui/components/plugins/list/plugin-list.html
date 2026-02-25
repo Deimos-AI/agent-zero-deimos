@@ -7,7 +7,7 @@
 </head>
 
 <body>
-    <div x-data>
+    <div x-data x-on:plugin-modal-closed.window="$store.pluginListStore.refresh()">
         <template x-if="$store.pluginListStore">
             <div x-init="$store.pluginListStore.init && $store.pluginListStore.init()">
 
