@@ -1,6 +1,6 @@
 # Plugins
 
-This page documents the current Agent Zero plugin system, including manifest format, discovery rules, scoped configuration, and activation behavior.
+This page documents the current Agent Zero plugin system, including manifest format, discovery rules, scoped configuration, activation behavior, and how to share a plugin with the community.
 
 ## Overview
 
@@ -21,7 +21,7 @@ On name collisions, user plugins take precedence.
 
 ## Manifest (`plugin.yaml`)
 
-Every plugin must contain `plugin.yaml`:
+Every plugin must contain `plugin.yaml`. This is the **runtime manifest** — it drives Agent Zero behavior. It is distinct from the index manifest used when publishing to the Plugin Index (see [Publishing to the Plugin Index](#publishing-to-the-plugin-index) below).
 
 ```yaml
 title: My Plugin
@@ -36,7 +36,7 @@ always_enabled: false
 
 Field reference:
 
-- `name`: UI display name
+- `title`: UI display name
 - `description`: short plugin summary
 - `version`: plugin version string
 - `settings_sections`: where plugin settings appear (`agent`, `external`, `mcp`, `developer`, `backup`)
@@ -50,6 +50,8 @@ Field reference:
 usr/plugins/<plugin_name>/
 ├── plugin.yaml
 ├── default_config.yaml              # optional defaults
+├── README.md                        # optional, shown in Plugin List UI
+├── LICENSE                          # optional, shown in Plugin List UI
 ├── api/                             # ApiHandler implementations
 ├── tools/                           # Tool implementations
 ├── helpers/                         # shared Python logic
@@ -118,12 +120,77 @@ Supported actions:
 - `list_configs`
 - `delete_config`
 - `toggle_plugin`
+- `get_doc` (fetches README.md or LICENSE for display in the UI)
 
-## Migration Notes
+## Publishing to the Plugin Index
 
-Current plugin format is YAML-based (`plugin.yaml`, `default_config.yaml`, `agent.yaml` for agent profiles). Legacy JSON manifests should be migrated.
+The **Plugin Index** is a community-maintained repository at https://github.com/agent0ai/a0-plugins. Plugins listed there are discoverable by all Agent Zero users.
+
+### Two Distinct plugin.yaml Files
+
+There are two completely different `plugin.yaml` schemas — they must not be confused:
+
+**Runtime manifest** (inside your plugin's own repo, drives Agent Zero behavior):
+```yaml
+title: My Plugin
+description: What this plugin does.
+version: 1.0.0
+settings_sections:
+  - agent
+per_project_config: false
+per_agent_config: false
+always_enabled: false
+```
+
+**Index manifest** (submitted to `a0-plugins` under `plugins/<your-plugin-name>/`, drives discoverability only):
+```yaml
+title: My Plugin
+description: What this plugin does.
+github: https://github.com/yourname/your-plugin-repo
+tags:
+  - tools
+  - example
+```
+
+The index manifest has only four fields (`title`, `description`, `github`, `tags`). The `github` URL must point to a public GitHub repository that contains a runtime `plugin.yaml` at the **repository root**.
+
+### Repository Structure for Community Plugins
+
+Plugin repos should expose the plugin contents at the repo root, so they can be cloned directly into `usr/plugins/<name>/`:
+
+```text
+your-plugin-repo/          ← GitHub repository root
+├── plugin.yaml            ← runtime manifest
+├── default_config.yaml
+├── README.md
+├── LICENSE
+├── api/
+├── tools/
+├── extensions/
+└── webui/
+```
+
+### Submission Process
+
+1. Create a GitHub repository with the runtime `plugin.yaml` at the repo root.
+2. Fork `https://github.com/agent0ai/a0-plugins`.
+3. Add `plugins/<your-plugin-name>/plugin.yaml` (index manifest) to your fork, and optionally a square thumbnail image (≤ 20 KB, named `thumbnail.png|jpg|webp`).
+4. Open a Pull Request. One PR must add exactly one new plugin folder.
+5. CI validates automatically. A maintainer reviews and merges.
+
+Submission rules:
+- Folder name: unique, stable, lowercase, kebab-case
+- Folders starting with `_` are reserved for internal use
+- `title`: max 50 characters
+- `description`: max 500 characters
+- `tags`: optional, up to 5, see https://github.com/agent0ai/a0-plugins/blob/main/TAGS.md
+
+### Plugin Marketplace (Coming Soon)
+
+A built-in **Plugin Marketplace** (always-active plugin) will allow users to browse the Plugin Index and install or update community plugins directly from the Agent Zero UI without leaving the application. This section will be updated once the marketplace plugin is released.
 
 ## See Also
 
 - `AGENTS.plugins.md` for full architecture details
-- `skills/a0-create-plugin/SKILL.md` for plugin authoring workflow
+- `skills/a0-create-plugin/SKILL.md` for plugin authoring workflow (agent-facing)
+- `plugins/README.md` for core plugin directory overview
