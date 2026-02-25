@@ -4,7 +4,6 @@
 import { createActionButton } from "/components/messages/action-buttons/simple-action-buttons.js";
 import { callJsonApi } from "/js/api.js";
 
-const BRANCH_ATTR = "data-branch-injected";
 const LOG_NO_ATTR = "data-log-no";
 
 /**
@@ -24,10 +23,12 @@ export default async function injectBranchButtons(context) {
     if (el) el.setAttribute(LOG_NO_ATTR, String(msg.no));
   }
 
-  // 2. Find every action-button bar that hasn't been patched yet and append a branch btn.
-  const bars = document.querySelectorAll(`.step-action-buttons:not([${BRANCH_ATTR}])`);
+  // 2. Inject branch button into every action bar.
+  //    Core renderers clear and rebuild action-button children on each update,
+  //    so we check for the actual button element instead of a marker attribute.
+  const bars = document.querySelectorAll(".step-action-buttons");
   for (const bar of bars) {
-    bar.setAttribute(BRANCH_ATTR, "1");
+    if (bar.querySelector(".action-fork_right")) continue;
 
     // Resolve the log no from the nearest stamped ancestor
     const stamped = bar.closest(`[${LOG_NO_ATTR}]`);
