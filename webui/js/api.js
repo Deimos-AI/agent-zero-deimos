@@ -54,8 +54,11 @@ export async function fetchApi(url, request) {
       csrfToken = null;
       return await _wrap(false);
     } else if (response.redirected && response.url.endsWith("/login")) {
-      // redirect to login
-      window.location.href = response.url;
+      // redirect to login (origin check prevents open redirect)
+      const _redirectUrl = new URL(response.url);
+      if (_redirectUrl.origin === window.location.origin) {
+        window.location.href = response.url;
+      }
       return;
     }
 
@@ -142,8 +145,11 @@ export async function getCsrfToken() {
     }
 
     if (response.redirected && response.url.endsWith("/login")) {
-      // redirect to login
-      window.location.href = response.url;
+      // redirect to login (origin check prevents open redirect)
+      const _redirectUrl = new URL(response.url);
+      if (_redirectUrl.origin === window.location.origin) {
+        window.location.href = response.url;
+      }
       return;
     }
     const json = await response.json();
