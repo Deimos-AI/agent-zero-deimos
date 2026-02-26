@@ -1723,7 +1723,7 @@ function drawKvpsIncremental(container, kvps, latex) {
       if (typeof value === "string" && value.startsWith("img://")) {
         const imgElement = document.createElement("img");
         imgElement.classList.add("kvps-img");
-        imgElement.src = value.replace("img://", "/image_get?path=");
+        imgElement.src = value.replace("img://", "/api/image_get?path=");
         imgElement.alt = "Image Attachment";
         tdiv.appendChild(imgElement);
 
@@ -1789,7 +1789,7 @@ function convertHTML(str) {
 }
 
 function convertImgFilePaths(str) {
-  return str.replace(/img:\/\//g, "/image_get?path=");
+  return str.replace(/img:\/\//g, "/api/image_get?path=");
 }
 
 function convertFilePaths(str) {
