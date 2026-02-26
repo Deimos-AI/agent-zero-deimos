@@ -23,6 +23,7 @@ const model = {
     perProjectConfig: true,
     perAgentConfig: true,
     hasExplicitRuleForScope: false,
+    hasConfigScreen: false,
 
     // Where the effective toggle was actually resolved (mirrors plugin-settings-store loadedXxx fields)
     loadedPath: "",
@@ -39,6 +40,8 @@ const model = {
         this.projectName = "";
         this.agentProfileKey = "";
         this.configs = [];
+        this.status = 'enabled';
+        this.hasExplicitRuleForScope = false;
         this.loadedPath = "";
         this.loadedProjectName = "";
         this.loadedAgentProfile = "";
@@ -72,6 +75,8 @@ const model = {
         this.loadedPath = "";
         this.loadedProjectName = "";
         this.loadedAgentProfile = "";
+        this.isLoading = false;
+        this.isSaving = false;
     },
 
     async loadProjects() {
@@ -176,27 +181,20 @@ const model = {
             });
         } else {
             // Same plugin — push current scope explicitly.
-            // onScopeChanged() syncs on @change events, but if the user never touched
-            // the scope selectors after the modal opened the settings store may still
-            // hold a stale scope from a prior session.
             settingsStore.projectName = this.projectName || "";
             settingsStore.agentProfileKey = this.agentProfileKey || "";
         }
-        await window.openModal?.("components/plugins/plugin-settings.html");
+        await window.openModal?.("/components/plugins/plugin-settings.html");
     },
 
     async openConfigListModal() {
         await window.openModal?.("/components/plugins/toggle/plugin-toggles.html");
     },
 
-    async loadConfigList() {
-        await this.loadConfigs();
-    },
-
     async switchToConfig(projectName, agentProfile) {
         this.projectName = projectName || "";
         this.agentProfileKey = agentProfile || "";
-        this.onScopeChanged();
+        await this.onScopeChanged();
         await window.closeModal?.();
     },
 
@@ -256,10 +254,6 @@ const model = {
         settingsStore.projectName = this.projectName || "";
         settingsStore.agentProfileKey = this.agentProfileKey || "";
         await settingsStore.loadSettings();
-    },
-
-    async addRule() {
-        await this.setEnabled(this.status === 'enabled');
     },
 
     projectLabel(key) {

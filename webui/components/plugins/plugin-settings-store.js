@@ -58,7 +58,7 @@ const model = {
         if (toggleStore) {
             toggleStore.projectName = nextProject;
             toggleStore.agentProfileKey = nextProfile;
-            toggleStore.calculateStatus();
+            await toggleStore.loadToggleStatus();
         }
     },
 

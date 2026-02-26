@@ -60,18 +60,10 @@
                                 </label>
 
                                 <div class="plugin-settings-toolbar-item plugin-status-toggle-item">
-                                    <template x-if="!$store.pluginToggle.hasExplicitRuleForScope && !$store.pluginToggle.alwaysEnabled">
-                                        <button type="button" 
-                                                class="button icon-button" 
-                                                title="Add explicit rule for this scope"
-                                                @click="$store.pluginToggle.addRule()">
-                                            <span class="icon material-symbols-outlined">add</span>
-                                        </button>
-                                    </template>
                                     <label class="toggle" :class="{ 'disabled-appearance': !$store.pluginToggle.hasExplicitRuleForScope && !$store.pluginToggle.alwaysEnabled }">
                                         <input type="checkbox"
                                                :checked="$store.pluginToggle.status === 'enabled'"
-                                               :disabled="$store.pluginToggle.alwaysEnabled || $store.pluginToggle.isSaving || !$store.pluginToggle.hasExplicitRuleForScope"
+                                               :disabled="$store.pluginToggle.alwaysEnabled || $store.pluginToggle.isSaving"
                                                @change="$store.pluginToggle.setEnabled($event.target.checked)">
                                         <span class="toggler"></span>
                                     </label>
@@ -189,11 +181,6 @@
             font-size: var(--font-size-small);
         }
 
-        .plugin-settings-body {
-            padding: 1rem;
-            min-height: 4rem;
-        }
-
         @media (max-width: 640px) {
             .plugin-settings-toolbar-item {
                 flex-basis: 100%;
@@ -236,18 +223,6 @@
             align-items: center;
             gap: 0.75rem;
             flex: 0 0 auto;
-        }
-
-        .plugin-status-toggle-item .button {
-            padding: 0.3rem 0.5rem;
-            height: 2.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .plugin-status-toggle-item .button .icon {
-            font-size: 1.1rem;
         }
 
         .disabled-appearance {
