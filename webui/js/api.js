@@ -165,7 +165,8 @@ export async function getCsrfToken() {
           : null;
       const cookieRuntimeId = runtimeId || injectedRuntimeId;
       if (cookieRuntimeId) {
-        document.cookie = `csrf_token_${cookieRuntimeId}=${csrfToken}; SameSite=Strict; Path=/`;
+        const _secureFlag = window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `csrf_token_${cookieRuntimeId}=${csrfToken}; SameSite=Strict; Path=/${_secureFlag}`;
       } else {
         console.warn("CSRF runtime id missing; skipping cookie name binding.");
       }
