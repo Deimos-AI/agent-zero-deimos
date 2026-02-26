@@ -62,6 +62,7 @@ export async function sendMessage() {
         // no await for the queue
         // if (success) {
           inputStore.reset();
+          adjustTextareaHeight();
         // }
         return;
       }
@@ -73,8 +74,9 @@ export async function sendMessage() {
       let response;
       const messageId = generateGUID();
 
-      // Clear input and attachments
-      inputStore.reset();
+    // Clear input and attachments
+    inputStore.reset();
+    adjustTextareaHeight();
 
       // Include attachments in the user message
       if (hasAttachments) {
@@ -229,6 +231,7 @@ globalThis.loadKnowledge = async function () {
 function adjustTextareaHeight() {
   const chatInputEl = document.getElementById("chat-input");
   if (chatInputEl) {
+    if (!inputStore.message) chatInputEl.value = "";
     chatInputEl.style.height = "auto";
     chatInputEl.style.height = chatInputEl.scrollHeight + "px";
   }
