@@ -10,6 +10,10 @@ from plugins.text_editor.helpers.file_ops import (
     apply_patch,
 )
 
+# Key used in agent.data to store file mtimes
+_MTIME_KEY = "_text_editor_mtimes"
+
+
 
 class TextEditor(Tool):
 
@@ -48,6 +52,8 @@ class TextEditor(Tool):
 
         if result.error:
             return self._error("read", path, result.error)
+
+        _record_mtime(self.agent, os.path.expanduser(path))
 
         # Extension point
         ext_data = {"content": result.content, "warnings": result.warnings}
@@ -89,6 +95,8 @@ class TextEditor(Tool):
         )
 
         expanded = os.path.expanduser(path)
+        _record_mtime(self.agent, expanded)
+
         cfg = _get_config(self.agent)
         read_result = read_file(
             expanded,
@@ -117,6 +125,11 @@ class TextEditor(Tool):
         if not os.path.isfile(expanded):
             return self._error("patch", path, "file not found")
 
+        stale_err = _check_mtime(self.agent, expanded)
+        if stale_err:
+            return self._error("patch", path, stale_err)
+
+
         parsed, err = validate_edits(edits)
         if err:
             return self._error("patch", path, err)
@@ -137,6 +150,8 @@ class TextEditor(Tool):
             "text_editor_patch_after", agent=self.agent,
             data={"path": expanded, "total_lines": total_lines},
         )
+
+        _record_mtime(self.agent, expanded)
 
         patch_content = _read_patch_region(
             expanded, ext_data["edits"], total_lines, _get_config(self.agent)
@@ -168,7 +183,6 @@ class TextEditor(Tool):
 def _read_patch_region(
     path: str, edits: list[dict], total_lines: int, cfg: dict
 ) -> str:
-    """Read back the affected region after a patch so the LLM sees the result."""
     if not edits:
         return ""
 
@@ -193,6 +207,32 @@ def _read_patch_region(
         max_total_read_tokens=cfg["max_total_read_tokens"],
     )
     return result.content
+
+
+def _record_mtime(agent, path: str):
+    mtimes = agent.data.setdefault(_MTIME_KEY, {})
+    try:
+        mtimes[os.path.realpath(path)] = os.path.getmtime(path)
+    except OSError:
+        pass
+
+
+def _check_mtime(agent, path: str) -> str:
+    mtimes = agent.data.get(_MTIME_KEY, {})
+    real = os.path.realpath(path)
+    if real not in mtimes:
+        return agent.read_prompt(
+            "fw.text_editor.patch_need_read.md", path=path
+        )
+    try:
+        current = os.path.getmtime(path)
+    except OSError:
+        return ""
+    if current != mtimes[real]:
+        return agent.read_prompt(
+            "fw.text_editor.patch_stale_read.md", path=path
+        )
+    return ""
 
 # ------------------------------------------------------------------
 # Config
