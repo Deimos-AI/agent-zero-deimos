@@ -88,10 +88,21 @@ class TextEditor(Tool):
             data={"path": path, "total_lines": result.total_lines},
         )
 
+        expanded = os.path.expanduser(path)
+        cfg = _get_config(self.agent)
+        read_result = read_file(
+            expanded,
+            line_from=1,
+            line_to=result.total_lines,
+            max_line_tokens=cfg["max_line_tokens"],
+            max_total_read_tokens=cfg["max_total_read_tokens"],
+        )
+
         msg = self.agent.read_prompt(
             "fw.text_editor.write_ok.md",
-            path=os.path.expanduser(path),
+            path=expanded,
             total_lines=str(result.total_lines),
+            content=read_result.content,
         )
         return Response(message=msg, break_loop=False)
 
