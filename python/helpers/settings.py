@@ -141,6 +141,7 @@ class Settings(TypedDict):
     litellm_global_kwargs: dict[str, Any]
 
     update_check_enabled: bool
+    chat_inherit_project: bool
 
 
 class PartialSettings(Settings, total=False):
@@ -568,6 +569,7 @@ def get_default_settings() -> Settings:
         secrets="",
         litellm_global_kwargs=get_default_value("litellm_global_kwargs", {}),
         update_check_enabled=get_default_value("update_check_enabled", True),
+        chat_inherit_project=get_default_value("chat_inherit_project", True),
     )
 
 
