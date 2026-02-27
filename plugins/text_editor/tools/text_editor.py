@@ -127,11 +127,16 @@ class TextEditor(Tool):
             data={"path": expanded, "total_lines": total_lines},
         )
 
+        patch_content = _read_patch_region(
+            expanded, ext_data["edits"], total_lines, _get_config(self.agent)
+        )
+
         msg = self.agent.read_prompt(
             "fw.text_editor.patch_ok.md",
             path=expanded,
-            edit_count=str(len(ext_data["edits"])),
+            edit_count=str(len(edits or [])),
             total_lines=str(total_lines),
+            content=patch_content,
         )
         return Response(message=msg, break_loop=False)
 
@@ -143,6 +148,40 @@ class TextEditor(Tool):
             f"fw.text_editor.{action}_error.md", path=path, error=error
         )
         return Response(message=msg, break_loop=False)
+
+
+# ------------------------------------------------------------------
+# Standalone helpers
+# ------------------------------------------------------------------
+
+def _read_patch_region(
+    path: str, edits: list[dict], total_lines: int, cfg: dict
+) -> str:
+    """Read back the affected region after a patch so the LLM sees the result."""
+    if not edits:
+        return ""
+
+    min_from = min(e["from"] for e in edits)
+    added = sum(
+        e["content"].count("\n")
+        + (1 if e["content"] and not e["content"].endswith("\n") else 0)
+        for e in edits if e.get("content")
+    )
+    removed = sum(
+        max(e["to"] - e["from"] + 1, 0)
+        for e in edits if not e.get("insert")
+    )
+    max_to = max(e["to"] for e in edits)
+    end_line = max_to + added - removed + 3
+
+    result = read_file(
+        path,
+        line_from=max(min_from - 1, 1),
+        line_to=min(end_line, total_lines),
+        max_line_tokens=cfg["max_line_tokens"],
+        max_total_read_tokens=cfg["max_total_read_tokens"],
+    )
+    return result.content
 
 # ------------------------------------------------------------------
 # Config
