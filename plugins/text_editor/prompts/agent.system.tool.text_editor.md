@@ -1,19 +1,18 @@
 ### text_editor
-native file read write patch with line numbers
-no code execution creating viewing editing text files
-terminal (grep find sed) search advanced replacements
+file read write patch with numbered lines
+not code execution rejects binary
+terminal (grep find sed) advance search/replace
 
 #### text_editor:read
-read file numbered lines
-args path line_from (inclusive) line_to (inclusive) both optional
-defaults first {{default_line_count}} lines if no range
+read file with numbered lines
+args path line_from line_to (inclusive optional)
+no range → first {{default_line_count}} lines
+long lines cropped output may trim by token limit
+read surrounding context before patching
 usage:
 ~~~json
 {
-    "thoughts": [
-        "..."
-    ],
-    "headline": "...",
+    ...
     "tool_name": "text_editor:read",
     "tool_args": {
         "path": "/path/file.py",
@@ -24,15 +23,13 @@ usage:
 ~~~
 
 #### text_editor:write
-create overwrite entire file
+create/overwrite file auto-creates dirs
 args path content
+\n for newlines end with \n
 usage:
 ~~~json
 {
-    "thoughts": [
-        "..."
-    ],
-    "headline": "...",
+    ...
     "tool_name": "text_editor:write",
     "tool_args": {
         "path": "/path/file.py",
@@ -42,22 +39,23 @@ usage:
 ~~~
 
 #### text_editor:patch
-apply line edits existing file
-args path edits (array of {from, to, content})
-from and to are inclusive line numbers
-{from:2, to:2, content:"x\n"} replace line 2
-{from:1, to:3, content:"x\n"} replace lines 1-3
-{from:2, to:2} delete line 2 (no content = delete)
-{from:2, content:"x\n"} insert before line 2 (omit to = insert)
-always original line numbers from read output dont adjust shifts
-edits must not overlap
+line edits on existing file
+args path edits [{from to content}]
+from to inclusive \n in content
+{from:2 to:2 content:"x\n"} replace line
+{from:1 to:3 content:"x\n"} replace range
+{from:2 to:2} delete (no content)
+{from:2 content:"x\n"} insert before (omit to)
+use original line numbers from read. dont adjust for shifts
+no overlapping edits
+ensure valid syntax in content (all braces brackets tags closed)
+only replace exact lines needed dont include surrounding unchanged lines
+re-read after patch before next patch
+large changes write over multiple patches
 usage:
 ~~~json
 {
-    "thoughts": [
-        "..."
-    ],
-    "headline": "...",
+    ...
     "tool_name": "text_editor:patch",
     "tool_args": {
         "path": "/path/file.py",
