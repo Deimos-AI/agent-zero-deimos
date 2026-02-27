@@ -8,27 +8,10 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-from python.helpers import plugins, tokens
-
-if TYPE_CHECKING:
-    from agent import Agent
+from python.helpers import tokens
 
 _BINARY_PEEK = 8192
-
-
-# ------------------------------------------------------------------
-# Config
-# ------------------------------------------------------------------
-
-def get_config(agent: "Agent") -> dict:
-    config = plugins.get_plugin_config("text_editor", agent=agent) or {}
-    return {
-        "max_line_tokens": int(config.get("max_line_tokens", 500)),
-        "default_line_count": int(config.get("default_line_count", 100)),
-        "max_total_read_tokens": int(config.get("max_total_read_tokens", 4000)),
-    }
 
 
 # ------------------------------------------------------------------

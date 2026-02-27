@@ -2,8 +2,8 @@ import os
 
 from python.helpers.tool import Tool, Response
 from python.helpers.extension import call_extensions
+from python.helpers import plugins
 from plugins.text_editor.helpers.file_ops import (
-    get_config,
     read_file,
     write_file,
     validate_edits,
@@ -32,7 +32,7 @@ class TextEditor(Tool):
         if not path:
             return self._error("read", path, "path is required")
 
-        cfg = get_config(self.agent)
+        cfg = _get_config(self.agent)
         line_from = int(kwargs.get("line_from", 1))
         raw_to = kwargs.get("line_to")
         line_to = int(raw_to) if raw_to is not None else None
@@ -143,4 +143,16 @@ class TextEditor(Tool):
             f"fw.text_editor.{action}_error.md", path=path, error=error
         )
         return Response(message=msg, break_loop=False)
-        
+
+# ------------------------------------------------------------------
+# Config
+# ------------------------------------------------------------------
+
+def _get_config(agent) -> dict:
+    config = plugins.get_plugin_config("text_editor", agent=agent) or {}
+    return {
+        "max_line_tokens": int(config.get("max_line_tokens", 500)),
+        "default_line_count": int(config.get("default_line_count", 100)),
+        "max_total_read_tokens": int(config.get("max_total_read_tokens", 4000)),
+    }
+    
