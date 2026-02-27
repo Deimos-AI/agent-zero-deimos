@@ -229,6 +229,11 @@ def apply_patch(path: str, edits: list[dict]) -> int:
     Inserts have 'insert': True.
     Returns total line count after patching.
     """
+    # Ensure content always ends with newline to prevent line merging
+    for e in edits:
+        if e["content"] and not e["content"].endswith("\n"):
+            e["content"] += "\n"
+
     dir_name = os.path.dirname(path) or "."
     fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
     try:
