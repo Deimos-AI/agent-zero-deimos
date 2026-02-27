@@ -79,6 +79,7 @@ def read_file(
     idx_from = line_from - 1
     idx_to = line_to  # slice is exclusive, line_to is inclusive 1-based
     selected = all_lines[idx_from:idx_to]
+    num_width = len(str(line_to))
 
     warn_parts: list[str] = []
     cropped_lines: list[int] = []
@@ -103,7 +104,7 @@ def read_file(
             break
 
         running_tokens += line_tok
-        output_lines.append(f"{line_no} {stripped}")
+        output_lines.append(f"{line_no:>{num_width}} {stripped}")
 
     if cropped_lines:
         nums = " ".join(str(n) for n in cropped_lines)
