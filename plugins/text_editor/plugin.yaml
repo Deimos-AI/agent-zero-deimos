@@ -1,5 +1,5 @@
 name: Text Editor
-description: Native text file read, write and patch tools with line numbers.
+description: Native tool to read, write, and patch text files in an LLM-friendly way.
 version: 1.0.0
 settings_sections:
   - agent
