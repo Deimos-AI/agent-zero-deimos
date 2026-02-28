@@ -50,7 +50,7 @@ use original line numbers from read. dont adjust for shifts
 no overlapping edits
 ensure valid syntax in content (all braces brackets tags closed)
 only replace exact lines needed dont include surrounding unchanged lines
-re-read after patch before next patch
+re-read when insert delete or N≠M replace else patch again ok
 large changes write over multiple patches
 usage:
 ~~~json

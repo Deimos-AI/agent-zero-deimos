@@ -10,7 +10,8 @@ from plugins.text_editor.helpers.file_ops import (
     apply_patch,
 )
 
-# Key used in agent.data to store file mtimes
+# Key used in agent.data to store file state for patch validation
+# Value: {path: {"mtime": float, "total_lines": int}}
 _MTIME_KEY = "_text_editor_mtimes"
 
 
@@ -53,7 +54,7 @@ class TextEditor(Tool):
         if result.error:
             return self._error("read", path, result.error)
 
-        _record_mtime(self.agent, os.path.expanduser(path))
+        _record_mtime(self.agent, os.path.expanduser(path), result.total_lines)
 
         # Extension point
         ext_data = {"content": result.content, "warnings": result.warnings}
@@ -95,7 +96,7 @@ class TextEditor(Tool):
         )
 
         expanded = os.path.expanduser(path)
-        _record_mtime(self.agent, expanded)
+        _record_mtime(self.agent, expanded, result.total_lines)
 
         cfg = _get_config(self.agent)
         read_result = read_file(
@@ -151,7 +152,7 @@ class TextEditor(Tool):
             data={"path": expanded, "total_lines": total_lines},
         )
 
-        _clear_mtime(self.agent, expanded)
+        _apply_patch_post(self.agent, expanded, total_lines, ext_data["edits"])
 
         patch_content = _read_patch_region(
             expanded, ext_data["edits"], total_lines, _get_config(self.agent)
@@ -209,10 +210,13 @@ def _read_patch_region(
     return result.content
 
 
-def _record_mtime(agent, path: str):
+def _record_mtime(agent, path: str, total_lines: int):
     mtimes = agent.data.setdefault(_MTIME_KEY, {})
     try:
-        mtimes[os.path.realpath(path)] = os.path.getmtime(path)
+        mtimes[os.path.realpath(path)] = {
+            "mtime": os.path.getmtime(path),
+            "total_lines": total_lines,
+        }
     except OSError:
         pass
 
@@ -223,6 +227,49 @@ def _clear_mtime(agent, path: str):
         mtimes.pop(os.path.realpath(path), None)
 
 
+def _count_content_lines(content: str) -> int:
+    return content.count("\n") + (
+        1 if content and not content.endswith("\n") else 0
+    )
+
+
+def _all_edits_in_place(edits: list[dict]) -> bool:
+    for e in edits:
+        if e.get("insert"):
+            return False
+        removed = max(e["to"] - e["from"] + 1, 0)
+        added = _count_content_lines(e.get("content", "") or "")
+        if removed != added:
+            return False
+    return True
+
+
+def _apply_patch_post(agent, path: str, new_total: int, edits: list[dict]):
+
+    if not _all_edits_in_place(edits):
+        _clear_mtime(agent, path)
+        return
+
+    mtimes = agent.data.get(_MTIME_KEY)
+    if mtimes is None:
+        return
+    real = os.path.realpath(path)
+    stored = mtimes.get(real)
+    if not isinstance(stored, dict) or "total_lines" not in stored:
+        mtimes.pop(real, None)
+        return
+    if new_total != stored["total_lines"]:
+        mtimes.pop(real, None)
+        return
+    try:
+        mtimes[real] = {
+            "mtime": os.path.getmtime(path),
+            "total_lines": new_total,
+        }
+    except OSError:
+        mtimes.pop(real, None)
+
+
 def _check_mtime(agent, path: str) -> str:
     mtimes = agent.data.get(_MTIME_KEY, {})
     real = os.path.realpath(path)
@@ -230,11 +277,18 @@ def _check_mtime(agent, path: str) -> str:
         return agent.read_prompt(
             "fw.text_editor.patch_need_read.md", path=path
         )
+    stored = mtimes[real]
+    mtime = stored.get("mtime") if isinstance(stored, dict) else stored
+    if mtime is None:
+        mtimes.pop(real, None)
+        return agent.read_prompt(
+            "fw.text_editor.patch_need_read.md", path=path
+        )
     try:
         current = os.path.getmtime(path)
     except OSError:
         return ""
-    if current != mtimes[real]:
+    if current != mtime:
         return agent.read_prompt(
             "fw.text_editor.patch_stale_read.md", path=path
         )
