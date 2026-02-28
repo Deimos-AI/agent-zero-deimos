@@ -151,7 +151,7 @@ class TextEditor(Tool):
             data={"path": expanded, "total_lines": total_lines},
         )
 
-        _record_mtime(self.agent, expanded)
+        _clear_mtime(self.agent, expanded)
 
         patch_content = _read_patch_region(
             expanded, ext_data["edits"], total_lines, _get_config(self.agent)
@@ -215,6 +215,12 @@ def _record_mtime(agent, path: str):
         mtimes[os.path.realpath(path)] = os.path.getmtime(path)
     except OSError:
         pass
+
+
+def _clear_mtime(agent, path: str):
+    mtimes = agent.data.get(_MTIME_KEY)
+    if mtimes is not None:
+        mtimes.pop(os.path.realpath(path), None)
 
 
 def _check_mtime(agent, path: str) -> str:
