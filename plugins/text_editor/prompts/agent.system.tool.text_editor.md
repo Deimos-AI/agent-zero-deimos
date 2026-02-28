@@ -25,7 +25,6 @@ usage:
 #### text_editor:write
 create/overwrite file auto-creates dirs
 args path content
-\n for newlines end with \n
 usage:
 ~~~json
 {
