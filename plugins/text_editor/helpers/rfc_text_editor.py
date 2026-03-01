@@ -1,11 +1,7 @@
 """
-RFC-routable filesystem operations for the text_editor plugin.
-
-These functions run inside the Docker container when invoked via
-runtime.call_development_function. They use only stdlib — no
-framework dependencies (no tiktoken, no agent context, etc.).
-
-All args and return values must be JSON-serializable.
+Filesystem operations for the text_editor plugin, executed on the
+Docker container via RFC. Stdlib only — args and return values
+must be JSON-serializable.
 """
 
 import os

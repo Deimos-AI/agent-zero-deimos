@@ -1,19 +1,13 @@
 """
-File operations for the text_editor plugin.
-
-Split into two layers:
-  - _impl functions in python/helpers/rfc_text_editor.py: pure filesystem
-    I/O with only stdlib deps. These run inside the Docker container
-    when routed via RFC.
-  - Public async functions here: orchestrate _impl calls through
-    runtime.call_development_function and apply token budgeting
-    (which requires tiktoken, a framework-only dependency).
+Async file operations for the text_editor plugin. Routes I/O to the
+Docker container via rfc_text_editor._impl functions and applies
+token budgeting host-side.
 """
 
 from dataclasses import dataclass
 
 from python.helpers import tokens, runtime
-from python.helpers.rfc_text_editor import (
+from plugins.text_editor.helpers.rfc_text_editor import (
     is_binary_impl as _is_binary_impl,
     read_file_raw_impl as _read_file_raw_impl,
     write_file_impl as _write_file_impl,
