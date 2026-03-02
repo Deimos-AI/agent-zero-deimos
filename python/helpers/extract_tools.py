@@ -1,4 +1,4 @@
-import re, os, importlib, importlib.util, inspect
+import re, os, sys, importlib, importlib.util, inspect
 from types import ModuleType
 from typing import Any, Type, TypeVar
 from .dirty_json import DirtyJson
@@ -59,16 +59,34 @@ def fix_json_string(json_string):
 
 T = TypeVar('T')  # Define a generic type variable
 
+def _find_plugin_root(file_path: str) -> str | None:
+    """Walk up from *file_path* looking for ``plugin.yaml`` to locate the plugin root."""
+    current = os.path.dirname(os.path.abspath(file_path))
+    for _ in range(10):  # cap traversal depth
+        if os.path.isfile(os.path.join(current, "plugin.yaml")):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+    return None
+
+
 def import_module(file_path: str) -> ModuleType:
     # Handle file paths with periods in the name using importlib.util
     abs_path = get_abs_path(file_path)
     module_name = os.path.basename(abs_path).replace('.py', '')
-    
+
+    # If this file lives inside a plugin, ensure the plugin root is importable
+    plugin_root = _find_plugin_root(abs_path)
+    if plugin_root and plugin_root not in sys.path:
+        sys.path.insert(0, plugin_root)
+
     # Create the module spec and load the module
     spec = importlib.util.spec_from_file_location(module_name, abs_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Could not load module from {abs_path}")
-        
+
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
