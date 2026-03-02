@@ -247,21 +247,21 @@ def _all_edits_in_place(edits: list[dict]) -> bool:
 
 
 def _apply_patch_post(agent, info: dict, new_total: int, edits: list[dict]):
-    """Update mtime cache after a patch, using file_info from the container."""
+    mtimes = agent.data.setdefault(_MTIME_KEY, {})
+    real = info["realpath"]
+
     if not _all_edits_in_place(edits):
-        _clear_mtime(agent, info)
+        # Line count changed — mark stale so next patch gets
+        # "file changed since last read" instead of "line numbers unknown"
+        mtimes[real] = {"mtime": 0, "total_lines": 0}
         return
 
-    mtimes = agent.data.get(_MTIME_KEY)
-    if mtimes is None:
-        return
-    real = info["realpath"]
     stored = mtimes.get(real)
     if not isinstance(stored, dict) or "total_lines" not in stored:
-        mtimes.pop(real, None)
+        mtimes[real] = {"mtime": 0, "total_lines": 0}
         return
     if new_total != stored["total_lines"]:
-        mtimes.pop(real, None)
+        mtimes[real] = {"mtime": 0, "total_lines": 0}
         return
     if info["mtime"] is not None:
         mtimes[real] = {
@@ -269,11 +269,10 @@ def _apply_patch_post(agent, info: dict, new_total: int, edits: list[dict]):
             "total_lines": new_total,
         }
     else:
-        mtimes.pop(real, None)
+        mtimes[real] = {"mtime": 0, "total_lines": 0}
 
 
 def _check_mtime(agent, info: dict) -> str:
-    """Check if the file has been modified since last read, using file_info."""
     mtimes = agent.data.get(_MTIME_KEY, {})
     real = info["realpath"]
     if real not in mtimes:
@@ -307,4 +306,3 @@ def _get_config(agent) -> dict:
         "default_line_count": int(config.get("default_line_count", 100)),
         "max_total_read_tokens": int(config.get("max_total_read_tokens", 4000)),
     }
-    
