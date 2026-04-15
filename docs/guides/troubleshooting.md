@@ -26,8 +26,8 @@ Refer to the [Choosing your LLMs](../setup/installation.md#installing-and-using-
 **7. How can I make Agent Zero retain memory between sessions?**
 Use **Settings → Backup & Restore** and avoid mapping the entire `/a0` directory. See [How to update Agent Zero](../setup/installation.md#how-to-update-agent-zero).
 
-**8. My browser agent fails or is unreliable. What now?**
-The built-in browser agent is currently unstable on some systems. Use Skills or MCP alternatives such as Browser OS, Chrome DevTools, or Vercel's Agent Browser. See [MCP Setup](mcp-setup.md).
+**8. My browser agent fails or says Playwright is missing. What now?**
+The built-in Browser Agent is a plugin that uses the Main Model from `_model_config`. **Docker:** the Chromium headless shell is shipped preinstalled (typically under `/a0/tmp/playwright`). **Local development:** if the binary is missing, `ensure_playwright_binary()` in `plugins/_browser_agent/helpers/playwright.py` runs `playwright install chromium --only-shell` into `tmp/playwright` on first Browser Agent use (you may see UI notifications). To install ahead of time, run `PLAYWRIGHT_BROWSERS_PATH=tmp/playwright playwright install chromium --only-shell` after `pip install -r requirements.txt`. If you prefer an external browser stack, use MCP alternatives such as Browser OS, Chrome DevTools, or Playwright MCP. See [MCP Setup](mcp-setup.md).
 
 **9. My secrets disappeared after a backup restore.**
 Secrets are stored in `/a0/usr/secrets.env` and are not always included in backup archives. Copy them manually.
@@ -36,7 +36,7 @@ Secrets are stored in `/a0/usr/secrets.env` and are not always included in backu
 - Join the Agent Zero [Skool](https://www.skool.com/agent-zero) or [Discord](https://discord.gg/B8KZKNsPpj) community.
 
 **11. How do I adjust API rate limits?**
-Use the model rate limit fields in Settings (Chat/Utility/Browser model sections) to set request/input/output limits. These map to the model config limits (for example `limit_requests`, `limit_input`, `limit_output`).
+Use the model rate limit fields in Settings (Main Model and Utility Model sections) to set request/input/output limits. The Browser Agent inherits the Main Model limits. These map to the model config limits (for example `limit_requests`, `limit_input`, `limit_output`).
 
 **12. My `code_execution_tool` doesn't work, what's wrong?**
 - Ensure Docker is installed and running.
@@ -55,6 +55,44 @@ Yes, by creating custom tools or using MCP servers. See [Extensions](../develope
 **Usage**
 
 - **Terminal commands not executing:** Ensure the Docker container is running and properly configured.  Check SSH settings if applicable. Check if the Docker image is updated by removing it from Docker Desktop app, and subsequently pulling it again.
+- **Agent Zero stuck on the update screen or not starting after an update:** If the browser stays on the updating screen for multiple minutes, reload the current browser window first. If the UI still does not come back, restart the Docker container. If it still does not recover, queue another self-update for the next startup and inspect the updater log.
+
+From the host, find the container name:
+
+```bash
+docker ps
+```
+
+Open a shell inside the container:
+
+```bash
+docker exec -it <container> /bin/bash
+```
+
+Queue an update for the next startup attempt with the recovery script in `/exe`:
+
+```bash
+/exe/trigger_self_update.sh
+```
+
+That default command writes `/exe/a0-self-update.yaml` with `main` and `latest`, so the next startup tries the newest release in the current installed major version. You can also specify the branch, version, and backup settings:
+
+```bash
+/exe/trigger_self_update.sh ready latest
+/exe/trigger_self_update.sh main v1.10 --backup-dir /root/update-backups --backup-name usr-recovery.zip
+/exe/trigger_self_update.sh development latest --no-backup
+```
+
+You can run the same commands directly from the host without opening a shell:
+
+```bash
+docker exec -it <container> /exe/trigger_self_update.sh
+docker exec -it <container> /exe/trigger_self_update.sh ready latest
+docker exec -it <container> tail -n 200 /exe/a0-self-update.log
+docker exec -it <container> cat /exe/a0-self-update-status.yaml
+```
+
+The recovery command only schedules the update. Restart the container or let Agent Zero start again, then check `/exe/a0-self-update.log` and `/exe/a0-self-update-status.yaml` to see what happened.
 
 * **Error Messages:** Pay close attention to the error messages displayed in the Web UI or terminal.  They often provide valuable clues for diagnosing the issue. Refer to the specific error message in online searches or community forums for potential solutions.
 

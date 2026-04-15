@@ -221,7 +221,7 @@ SMTP_PASSWORD=email_pwd_here
 
 ### Subagent Configuration
 
-Projects can enable or disable specific subagents (like the Browser Agent). This is configured via the UI and stored in `.a0proj/agents.json`.
+Projects can enable or disable specific subagents. This is configured via the UI and stored in `.a0proj/agents.json`. The Browser Agent is not a subagent; it is a built-in plugin.
 
 ### Knowledge Files
 

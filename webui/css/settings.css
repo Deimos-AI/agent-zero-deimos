@@ -3,7 +3,7 @@
 /* Field Styles */
 .field {
   display: grid;
-  grid-template-columns: 60% 1fr;
+  grid-template-columns: 55% 1fr;
   align-items: center;
   margin-block: 1rem;
   padding: var(--spacing-xs) 0;
@@ -136,6 +136,11 @@ input:checked + .toggler:before {
 /* Select Styles */
 select {
   cursor: pointer;
+  color-scheme: dark;
+}
+
+.light-mode select {
+  color-scheme: light;
 }
 
 select:disabled {
@@ -175,13 +180,14 @@ nav ul li a {
   border-radius: 8px;
   padding: 1rem;
   width: 100%;
-  transition: all 0.2s ease-in-out;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out,
+    box-shadow 0.2s ease-in-out, opacity 0.2s ease-in-out;
 }
 
 nav ul li a:hover {
-  transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   background-color: var(--color-secondary);
+  border-color: var(--color-primary);
 }
 
 nav ul li a img {
@@ -246,7 +252,6 @@ nav ul li a img {
   width: 100%;
   margin-bottom: 8px;
   padding: 0;
-  margin-top: 20px;
   position: relative;
   overflow: visible;
 }
