@@ -1,0 +1,18 @@
+# Document Query Plugin Configuration
+# All timeout values in seconds
+
+# --- Timeouts ---
+fetch_timeout: 30            # HTTP fetch connect/read timeout
+per_document_timeout: 60     # max time for a single document parse
+gather_timeout: 120          # max time for all documents combined in one call
+
+# --- Parser settings ---
+chunk_size: 1000
+chunk_overlap: 100
+search_threshold: 0.5
+search_limit: 100
+max_remote_bytes: 52428800   # 50 MB
+
+# --- Feature flags ---
+pdf_ocr_fallback: true       # enable Tesseract fallback for PDFs
+thread_offload: true         # offload sync parsers to thread pool
